@@ -1,0 +1,758 @@
+
+Best regards,
+
+Peter Delatour Jr.
+Director of Lease-Up  
+
+
+
+---------- Forwarded message ---------
+From: Peter Delatour <pdelatour@flow.life>
+Date: Wed, Feb 25, 2026 at 9:20 AM
+Subject: updated dashboard
+To: Zackery Faszczewski <zfaszczewski@flow.life>, Estephania Delgadillo <edelgadillo@flow.life>, Jason Bernstein <jbernstein@flow.life>
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Properties - Leasing Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
+    <div id="app"></div>
+    <script>
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwMx1nDKWJndKwdP148mmW1ao6tDVlYq1iF1CeqOzuPxgUfmMOsXDrDO4Yo1n2WIgqANg/exec';
+const FTL_URL='https://script.google.com/macros/s/AKfycbzXXcYTUFaTUYiBYdUzQE97LP7AUjWRo2ItKf51r0AJr2OtS_4mUnQkMln6opNxmO9H/exec';
+const GOALS={brickell:85,west:60,east:5,ftl:36};
+const AGENTS={'elaine repetti':'Elaine Repetti','samantha martin':'Samantha Martin','brittny castillo':'Brittny Castillo','britnny castillo':'Brittny Castillo','paula osorno':'Paula Osorno','vivianna russ':'Vivianna Russ','molly duff':'Molly Duff','caylee aanonsen':'Caylee Aanonsen','estephania delgadillo':'Estephania Delgadillo','romeo anthony':'Romeo Anthony','angelica wells':'Angelica Wells','estephanie cardenas':'Estephanie Cardenas','nico valdes':'Nico Valdes','nicolas valdes':'Nico Valdes','jeremiah hayes':'Jay Hayes','jay hayes':'Jay Hayes','zackery faszczewski':'Zackery Faszczewski','jb mathieu':'JB Mathieu','carolina fernandez':'Carolina Fernandez','laura arias':'Laura Arias','lexie inglesi':'Lexie Inglesi'};
+let data=null,lastUp=null,agView='mtd',effView='mtd',coachView='mtd',convView='mtd',velView='mtd',unitView='mtd',riskTab='all';
+
+function pd(d){if(!d)return null;const dt=new Date(d);if(isNaN(dt.getTime()))return null;return new Date(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate());}
+function getNow(){const n=new Date();return new Date(n.toLocaleString('en-US',{timeZone:'America/New_York'}));}
+function gws(){const n=getNow(),d=n.getDay(),diff=d===0?6:d-1,w=new Date(n);w.setDate(n.getDate()-diff);w.setHours(0,0,0,0);return w;}
+function glws(){const w=gws(),l=new Date(w);l.setDate(l.getDate()-7);return l;}
+function glwe(){const w=gws(),e=new Date(w);e.setDate(e.getDate()-1);e.setHours(23,59,59,999);return e;}
+function gy(){const t=getNow();t.setHours(0,0,0,0);const y=new Date(t);y.setDate(y.getDate()-1);return y;}
+function gms(){return new Date(2026,1,1);}
+function glms(){return new Date(2026,0,1);}
+function glme(){return new Date(2026,0,31,23,59,59,999);}
+function nag(n){if(!n)return null;return AGENTS[n.toLowerCase().trim()]||null;}
+
+function calcConversion(apps){
+    const filtered=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return!ag.includes('marketing')&&ag!=='flow';});
+    const totalApps=filtered.length;
+    const withApproval=filtered.filter(a=>a.approvalDate).length;
+    const withLease=filtered.filter(a=>a.originalLeaseExecuted).length;
+    const approvedThenLeased=filtered.filter(a=>a.approvalDate&&a.originalLeaseExecuted).length;
+    return{totalApps,appToApproval:totalApps>0?(withApproval/totalApps*100).toFixed(1):0,approvalToLease:withApproval>0?(approvedThenLeased/withApproval*100).toFixed(1):0,appToLease:totalApps>0?(withLease/totalApps*100).toFixed(1):0,withApproval,withLease};
+}
+
+function calcVelocity(apps){
+    const filtered=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return!ag.includes('marketing')&&ag!=='flow'&&a.applicationDate;});
+    const appToApprovalTimes=filtered.filter(a=>a.approvalDate).map(a=>(a.approvalDate-a.applicationDate)/86400000);
+    const approvalToLeaseTimes=filtered.filter(a=>a.approvalDate&&a.originalLeaseExecuted).map(a=>(a.originalLeaseExecuted-a.approvalDate)/86400000);
+    const avgAppToApproval=appToApprovalTimes.length>0?(appToApprovalTimes.reduce((s,v)=>s+v,0)/appToApprovalTimes.length).toFixed(1):0;
+    const avgApprovalToLease=approvalToLeaseTimes.length>0?(approvalToLeaseTimes.reduce((s,v)=>s+v,0)/approvalToLeaseTimes.length).toFixed(1):0;
+    return{avgAppToApproval,avgApprovalToLease,appToApprovalCount:appToApprovalTimes.length,approvalToLeaseCount:approvalToLeaseTimes.length};
+}
+
+function forecastMonthEnd(apps,goal){
+    const ms=gms(),n=getNow();
+    const daysInMonth=28,daysPassed=Math.floor((n-ms)/86400000),daysRemaining=Math.max(1,daysInMonth-daysPassed);
+    const mtdMetrics=cpm(apps,'mtd');
+    const currentLeases=mtdMetrics.leasesSignedCount;
+    const currentApps=mtdMetrics.totalApps;
+    const conversion=calcConversion(apps.filter(a=>a.applicationDate>=ms));
+    const conversionRate=parseFloat(conversion.appToLease)/100;
+    const pipeline=apps.filter(a=>{const st=(a.status||'').toLowerCase();const ag=(a.agent||'').toLowerCase().trim();return(st.includes('submit application')||st.includes('pending screening')||st.includes('approved'))&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    const dailyAppRate=daysPassed>0?(currentApps/daysPassed):0;
+    const projectedNewLeases=Math.round((dailyAppRate*daysRemaining)*conversionRate);
+    const pipelineConversion=Math.round(pipeline*conversionRate);
+    const projectedTotal=currentLeases+projectedNewLeases+pipelineConversion;
+    const probabilityOfSuccess=projectedTotal>=goal?Math.min(95,70+((projectedTotal-goal)/goal*100)):Math.max(5,70-((goal-projectedTotal)/goal*100));
+    return{currentLeases,pipeline,projectedTotal,probabilityOfSuccess:probabilityOfSuccess.toFixed(0),gap:goal-projectedTotal,daysRemaining};
+}
+
+function parseUnit(code,prop){
+    if(!code)return'Unknown';
+    const c=String(code).toLowerCase().trim();
+    if(prop==='Brickell'){
+        if(c.includes('s0')||c.includes('-s'))return'Studio';
+        if(c.includes('a0')||c.includes('-a'))return c.endsWith('d')?'1BR+Den':'1BR';
+        if(c.includes('b0')||c.includes('-b'))return c.endsWith('d')?'2BR+Den':'2BR';
+        if(c.includes('c0')||c.includes('-c'))return'3BR';
+    }
+    if(prop==='East'){
+        if(c.includes('s0')||c.includes('-s'))return'Studio';
+        if(c.includes('a0')||c.includes('-a'))return'1BR';
+        if(c.includes('b0')||c.includes('-b'))return'2BR';
+        if(c.includes('c0')||c.includes('-c'))return'3BR';
+    }
+    if(prop==='West'){
+        if(c.includes('wa'))return'1BR';
+        if(c.includes('wb'))return'2BR';
+        if(c.includes('w0')||c.includes('-w'))return'Studio';
+    }
+    if(prop==='FTL'){
+        if(c.includes('s')||c.includes('studio'))return'Studio';
+        if(c.includes('1'))return'1BR';
+        if(c.includes('2'))return'2BR';
+        if(c.includes('3'))return'3BR';
+    }
+    return'Unknown';
+}
+
+function cUnitMix(apps,f,prop){
+    const ws=gws(),ms=gms(),lws=glws(),lwe=glwe();
+    const mix={};
+    apps.forEach(a=>{
+        const agentLower=(a.agent||'').toLowerCase().trim();
+        const isMkt=agentLower.includes('marketing');
+        const isFlow=agentLower==='flow';
+        if(isMkt||isFlow)return;
+        let inc=false;
+        if(f==='wtd'&&a.applicationDate>=ws)inc=true;
+        if(f==='lastweek'&&a.applicationDate>=lws&&a.applicationDate<=lwe)inc=true;
+        if(f==='mtd'&&a.applicationDate>=ms)inc=true;
+        if(inc){
+            const ut=parseUnit(a.unitType||a.unit,prop);
+            if(!mix[ut])mix[ut]=0;
+            mix[ut]++;
+        }
+    });
+    return mix;
+}
+
+async function load(){
+    document.getElementById('app').innerHTML='<div class="flex items-center justify-center min-h-screen"><div class="text-white text-xl">Loading...</div></div>';
+    try{
+        console.log('Loading 4 properties...');
+        const[b,w,e,f]=await Promise.all([
+            fetch(`${SCRIPT_URL}?property=brickell&t=${Date.now()}`),
+            fetch(`${SCRIPT_URL}?property=west&t=${Date.now()}`),
+            fetch(`${SCRIPT_URL}?property=east&t=${Date.now()}`),
+            fetch(`${FTL_URL}?t=${Date.now()}`)
+        ]);
+        const[bR,wR,eR,fR]=await Promise.all([b.json(),w.json(),e.json(),f.json()]);
+        console.log('Data loaded:',bR.length,'Brickell,',wR.length,'West,',eR.length,'East,',fR.length,'FTL');
+        const ftlAgents=new Set(fR.map(r=>r['Agent']).filter(a=>a));
+        console.log('FTL Agents:',Array.from(ftlAgents));
+        data={
+            brickell:bR.map(r=>({property:'Brickell',unit:r['Unit #']||'',unitType:r['Unit Type']||'',applicant:r['Applicants Name']||'',applicationDate:pd(r['Date of Application']),status:r['Status']||'',approvalDate:pd(r['Approval Date']),agent:r['Agent']||'',originalLeaseExecuted:pd(r['Original Lease Executed'])})).filter(a=>a.applicant&&a.applicationDate),
+            west:wR.map(r=>({property:'West',unit:r['Unit']||'',unitType:r['Unit Type']||'',applicant:r['Applicants Name']||'',applicationDate:pd(r['Date of Application']),agent:r['Agent']||'',status:r['Status']||'',approvalDate:pd(r['Cold']||r['Approval Date']),originalLeaseExecuted:pd(r['Original Lease Executed'])})).filter(a=>a.applicant&&a.applicationDate),
+            east:eR.map(r=>({property:'East',unit:r['Unit']||'',unitType:r['Unit Type']||'',applicant:r['Applicants Name']||'',applicationDate:pd(r['Date of Application']),status:r['Status']||'',approvalDate:pd(r['Approval Date']),agent:r['Agent']||'',originalLeaseExecuted:pd(r['Original Lease Executed'])})).filter(a=>a.applicant&&a.applicationDate),
+            ftl:fR.map(r=>({property:'FTL',unit:r['Unit']||r['Unit #']||'',unitType:r['Unit Type']||'',applicant:r['Applicants Name']||'',applicationDate:pd(r['Date of Application']),status:r['Status']||'',approvalDate:pd(r['Approval Date']),agent:r['Agent']||'',originalLeaseExecuted:pd(r['Original Lease Executed'])})).filter(a=>a.applicant&&a.applicationDate)
+        };
+        lastUp=new Date();
+        render();
+    }catch(e){
+        console.error(e);
+        document.getElementById('app').innerHTML=`<div class="flex items-center justify-center min-h-screen p-6"><div class="bg-red-500 text-white p-6 rounded-lg"><p class="font-bold">Error: ${e.message}</p><button onclick="load()" class="mt-4 bg-white text-red-500 px-4 py-2 rounded">Retry</button></div></div>`;
+    }
+}
+
+function cpm(apps,f){
+    const ws=gws(),ms=gms(),td=getNow(),yd=gy(),lws=glws(),lwe=glwe(),lms=glms(),lme=glme();
+    td.setHours(0,0,0,0);
+    const wbs=new Date(lws);wbs.setDate(wbs.getDate()-7);
+    const wbe=new Date(lws);wbe.setDate(wbe.getDate()-1);wbe.setHours(23,59,59,999);
+    let ta=0,ls=0,ml=0,fl=0,ap=0;
+    apps.forEach(a=>{
+        const agentRaw=a.agent||'';
+        const agentLower=agentRaw.toLowerCase().trim();
+        const isMkt=agentLower.includes('marketing');
+        const isFlow=agentLower==='flow';
+        if(a.approvalDate&&!isMkt&&!isFlow){
+            let i=false;
+            if(f==='today'&&a.approvalDate>=td)i=true;
+            if(f==='yesterday'&&a.approvalDate>=yd&&a.approvalDate<td)i=true;
+            if(f==='lastweek'&&a.approvalDate>=lws&&a.approvalDate<=lwe)i=true;
+            if(f==='weekbeforelast'&&a.approvalDate>=wbs&&a.approvalDate<=wbe)i=true;
+            if(f==='wtd'&&a.approvalDate>=ws)i=true;
+            if(f==='mtd'&&a.approvalDate>=ms)i=true;
+            if(f==='lastmonth'&&a.approvalDate>=lms&&a.approvalDate<=lme)i=true;
+            if(f==='historical')i=true;
+            if(i)ap++;
+        }
+        if(a.originalLeaseExecuted){
+            let i=false;
+            if(f==='today'&&a.originalLeaseExecuted>=td)i=true;
+            if(f==='yesterday'&&a.originalLeaseExecuted>=yd&&a.originalLeaseExecuted<td)i=true;
+            if(f==='lastweek'&&a.originalLeaseExecuted>=lws&&a.originalLeaseExecuted<=lwe)i=true;
+            if(f==='weekbeforelast'&&a.originalLeaseExecuted>=wbs&&a.originalLeaseExecuted<=wbe)i=true;
+            if(f==='wtd'&&a.originalLeaseExecuted>=ws)i=true;
+            if(f==='mtd'&&a.originalLeaseExecuted>=ms)i=true;
+            if(f==='lastmonth'&&a.originalLeaseExecuted>=lms&&a.originalLeaseExecuted<=lme)i=true;
+            if(f==='historical')i=true;
+            if(i){
+                if(isMkt)ml++;
+                else if(isFlow)fl++;
+                else ls++;
+            }
+        }
+    });
+    if(f==='today')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=td&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='yesterday')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=yd&&a.applicationDate<td&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='lastweek')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=lws&&a.applicationDate<=lwe&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='weekbeforelast')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=wbs&&a.applicationDate<=wbe&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='wtd')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=ws&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='mtd')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=ms&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else if(f==='lastmonth')ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=lms&&a.applicationDate<=lme&&!ag.includes('marketing')&&ag!=='flow';}).length;
+    else ta=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return!ag.includes('marketing')&&ag!=='flow';}).length;
+    return{totalApps:ta,leasesSignedCount:ls,approvalsCount:ap,marketingLeases:ml,flowLeases:fl};
+}
+
+function cap(apps,f){
+    const st={},ws=gws(),ms=gms(),lms=glms(),lme=glme();
+    apps.forEach(a=>{
+        const ag=nag(a.agent);
+        if(!ag)return;
+        if(!st[ag])st[ag]={totalApplications:0,leasesSigned:0,cancelsDenials:0,pendingApplications:0,propertiesWorked:new Set()};
+        let inc=false;
+        if(f==='wtd'&&(a.applicationDate>=ws||(a.originalLeaseExecuted&&a.originalLeaseExecuted>=ws)))inc=true;
+        if(f==='mtd'&&(a.applicationDate>=ms||(a.originalLeaseExecuted&&a.originalLeaseExecuted>=ms)))inc=true;
+        if(f==='lastmonth'&&(a.applicationDate>=lms&&a.applicationDate<=lme)||(a.originalLeaseExecuted&&a.originalLeaseExecuted>=lms&&a.originalLeaseExecuted<=lme))inc=true;
+        if(f==='lastweek'&&(a.applicationDate>=glws()&&a.applicationDate<=glwe())||(a.originalLeaseExecuted&&a.originalLeaseExecuted>=glws()&&a.originalLeaseExecuted<=glwe()))inc=true;
+        if(f==='historical')inc=true;
+        if(inc){
+            let cApp=false;
+            if(f==='wtd'&&a.applicationDate>=ws)cApp=true;
+            if(f==='mtd'&&a.applicationDate>=ms)cApp=true;
+            if(f==='lastmonth'&&a.applicationDate>=lms&&a.applicationDate<=lme)cApp=true;
+            if(f==='lastweek'&&a.applicationDate>=glws()&&a.applicationDate<=glwe())cApp=true;
+            if(f==='historical')cApp=true;
+            if(cApp){
+                st[ag].totalApplications++;
+                st[ag].propertiesWorked.add(a.property);
+                const s=(a.status||'').toLowerCase();
+                if(s.includes('cancel')||s.includes('denied'))st[ag].cancelsDenials++;
+            }
+            if(a.originalLeaseExecuted){
+                let il=false;
+                if(f==='wtd'&&a.originalLeaseExecuted>=ws)il=true;
+                if(f==='mtd'&&a.originalLeaseExecuted>=ms)il=true;
+                if(f==='lastmonth'&&a.originalLeaseExecuted>=lms&&a.originalLeaseExecuted<=lme)il=true;
+                if(f==='lastweek'&&a.originalLeaseExecuted>=glws()&&a.originalLeaseExecuted<=glwe())il=true;
+                if(f==='historical')il=true;
+                if(il){st[ag].leasesSigned++;st[ag].propertiesWorked.add(a.property);}
+            }
+        }
+        const s=(a.status||'').toLowerCase();
+        if(s.includes('submit application')||s.includes('pending screening')||s.includes('approved')){
+            if(!st[ag])st[ag]={totalApplications:0,leasesSigned:0,cancelsDenials:0,pendingApplications:0,propertiesWorked:new Set()};
+            st[ag].pendingApplications++;
+        }
+    });
+    return st;
+}
+
+function cm(apps,p){
+    const n=getNow(),ms=new Date(2026,1,1),dim=28;
+    const de=Math.floor((n-ms)/86400000),dr=Math.max(0,dim-de);
+    const mtd=cpm(apps,'mtd'),ls=mtd.leasesSignedCount;
+    const pipe=apps.filter(a=>{const st=(a.status||'').toLowerCase();const agentLower=(a.agent||'').toLowerCase().trim();const isMkt=agentLower.includes('marketing');const isFlow=agentLower==='flow';return(st.includes('submit application')||st.includes('pending screening')||st.includes('under review')||st.includes('approved'))&&!isMkt&&!isFlow;});
+    const sb={submitted:0,pending:0,approved:0};
+    pipe.forEach(a=>{const st=(a.status||'').toLowerCase();if(st.includes('submit application'))sb.submitted++;else if(st.includes('pending screening')||st.includes('pending'))sb.pending++;else if(st.includes('approved'))sb.approved++;});
+    const g=GOALS[p],rem=g-ls,dpn=dr>0?(rem/dr).toFixed(1):0,pp=((ls/g)*100).toFixed(1);
+    const v24=[],v48=[];
+    pipe.forEach(a=>{if(!a.applicationDate)return;const ha=(n-a.applicationDate)/3600000,st=(a.status||'').toLowerCase(),ia=st.includes('approved');if(!a.approvalDate&&ha>24)v24.push({...a,hoursOver:(ha-24).toFixed(1)});if(a.approvalDate&&ia&&!a.originalLeaseExecuted){const hap=(n-a.approvalDate)/3600000;if(hap>48)v48.push({...a,hoursOver:(hap-48).toFixed(1)});}});
+    const ast={};
+    pipe.forEach(a=>{const ag=nag(a.agent)||'Other';if(!ast[ag])ast[ag]={total:0,violations:0};ast[ag].total++;if(v24.some(v=>v.applicant===a.applicant)||v48.some(v=>v.applicant===a.applicant))ast[ag].violations++;});
+    return{leaseSigned:ls,goal:g,remaining:rem,progressPercent:pp,dailyPaceNeeded:dpn,daysRemaining:dr,activePipeline:pipe.length,violations24hr:v24,violations48hr:v48,agentStats:ast,stageBreakdown:sb};
+}
+
+function rag(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const ast=cap(all,agView);
+    const srt=Object.entries(ast).sort((a,b)=>{if(b[1].leasesSigned!==a[1].leasesSigned)return b[1].leasesSigned-a[1].leasesSigned;if(b[1].pendingApplications!==a[1].pendingApplications)return b[1].pendingApplications-a[1].pendingApplications;return b[1].totalApplications-a[1].totalApplications;});
+    const tl={'historical':'All Time','mtd':'Month to Date (Feb 2026)','wtd':'Week to Date','lastmonth':'Last Month (Jan 2026)'}[agView];
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-3xl font-bold text-gray-800 mb-4">👥 Agent Performance</h2><div class="flex gap-2 mb-6">${['historical','lastmonth','mtd','wtd'].map(v=>`<button onclick="chAg('${v}')"class="px-4 py-2 rounded font-semibold ${agView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='historical'?'All Time':v==='mtd'?'MTD':v==='wtd'?'WTD':'Last Month'}</button>`).join('')}</div><div class="mb-4 text-sm text-gray-600">${tl}</div><table class="w-full"><thead class="bg-gray-100"><tr><th class="px-4 py-3 text-left">Rank</th><th class="px-4 py-3 text-left">Agent</th><th class="px-4 py-3 text-center">Apps</th><th class="px-4 py-3 text-center">Leases</th><th class="px-4 py-3 text-center">Pending</th><th class="px-4 py-3 text-center">Cancels</th><th class="px-4 py-3 text-center">Close%</th><th class="px-4 py-3 text-left">Props</th></tr></thead><tbody>${srt.map(([ag,st],i)=>{const cr=st.totalApplications>0?((st.leasesSigned/st.totalApplications)*100).toFixed(1):'0.0';const rk=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;return`<tr class="${i%2===0?'bg-white':'bg-gray-50'}border-b"><td class="px-4 py-3 text-center text-xl">${rk}</td><td class="px-4 py-3 font-medium">${ag}</td><td class="px-4 py-3 text-center text-blue-600 font-semibold">${st.totalApplications}</td><td class="px-4 py-3 text-center text-green-600 font-bold text-lg">${st.leasesSigned}</td><td class="px-4 py-3 text-center text-orange-600 font-semibold">${st.pendingApplications}</td><td class="px-4 py-3 text-center text-red-600 font-semibold">${st.cancelsDenials}</td><td class="px-4 py-3 text-center"><span class="px-3 py-1 rounded-full text-sm font-semibold ${parseFloat(cr)>=50?'bg-green-100 text-green-800':parseFloat(cr)>=30?'bg-yellow-100 text-yellow-800':'bg-red-100 text-red-800'}">${cr}%</span></td><td class="px-4 py-3 text-sm">${Array.from(st.propertiesWorked).join(', ')}</td></tr>`;}).join('')}</tbody></table><div class="mt-6 grid grid-cols-3 gap-4"><div class="bg-blue-50 p-4 rounded"><div class="text-sm text-blue-600 font-semibold">Total Apps</div><div class="text-3xl font-bold text-blue-700">${srt.reduce((s,[_,st])=>s+st.totalApplications,0)}</div></div><div class="bg-green-50 p-4 rounded"><div class="text-sm text-green-600 font-semibold">Total Leases</div><div class="text-3xl font-bold text-green-700">${srt.reduce((s,[_,st])=>s+st.leasesSigned,0)}</div></div><div class="bg-purple-50 p-4 rounded"><div class="text-sm text-purple-600 font-semibold">Close Rate</div><div class="text-3xl font-bold text-purple-700">${(()=>{const ta=srt.reduce((s,[_,st])=>s+st.totalApplications,0),tl=srt.reduce((s,[_,st])=>s+st.leasesSigned,0);return ta>0?((tl/ta)*100).toFixed(1):'0.0';})()}%</div></div></div></div>`;
+}
+
+window.chAg=v=>{agView=v;render();};
+window.chEff=v=>{effView=v;render();};
+window.chCoach=v=>{coachView=v;render();};
+window.chConv=v=>{convView=v;render();};
+window.chVel=v=>{velView=v;render();};
+window.chUnit=v=>{unitView=v;render();};
+window.chRisk=v=>{riskTab=v;render();};
+
+function riskAlerts(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const propMap={all,brickell:data.brickell,west:data.west,east:data.east,ftl:data.ftl};
+    const propApps=propMap[riskTab]||all;
+    const n=getNow(),ms=gms();
+
+    const atRiskDeals=propApps.filter(a=>{
+        const ag=(a.agent||'').toLowerCase().trim();
+        if(ag.includes('marketing')||ag==='flow')return false;
+        const st=(a.status||'').toLowerCase();
+        if(st.includes('cancel')||st.includes('denied'))return false;
+        if(a.approvalDate&&!a.originalLeaseExecuted){
+            const hoursApproved=(n-a.approvalDate)/3600000;
+            return hoursApproved>36;
+        }
+        return false;
+    }).sort((a,b)=>(n-b.approvalDate)-(n-a.approvalDate));
+
+    const staleApplications=propApps.filter(a=>{
+        const ag=(a.agent||'').toLowerCase().trim();
+        if(ag.includes('marketing')||ag==='flow')return false;
+        const st=(a.status||'').toLowerCase();
+        if(st.includes('cancel')||st.includes('denied'))return false;
+        if(a.applicationDate&&!a.approvalDate){
+            const hoursWaiting=(n-a.applicationDate)/3600000;
+            return hoursWaiting>24;
+        }
+        return false;
+    }).sort((a,b)=>(n-b.applicationDate)-(n-a.applicationDate));
+
+    const propKeys=riskTab==='all'?['brickell','west','east','ftl']:[riskTab];
+    const pipelineConcerns=[];
+    propKeys.forEach(prop=>{
+        const wtdApps=cpm(data[prop],'wtd').totalApps;
+        const histConv=calcConversion(data[prop]);
+        const convRate=parseFloat(histConv.appToLease)/100||0.4;
+        const weeklyGoal=((GOALS[prop]/28)*7);
+        const appsNeeded=Math.ceil(weeklyGoal/convRate);
+        if(wtdApps<appsNeeded*0.7){
+            pipelineConcerns.push({property:prop,apps:wtdApps,needed:appsNeeded,concern:`Need ${appsNeeded} apps/wk at ${(convRate*100).toFixed(0)}% conversion`});
+        }
+    });
+
+    const remoteAdminAgents=['Zackery Faszczewski','Estephania Delgadillo','Estephanie Cardenas'];
+    const wtdStats=cap(propApps,'wtd');
+    const lwkStats=cap(propApps,'lastweek');
+    const conversionDrops=Object.keys(wtdStats).filter(ag=>!remoteAdminAgents.includes(ag)).map(ag=>{
+        const thisWeek=wtdStats[ag];
+        const lastWeek=lwkStats[ag]||{totalApplications:0,leasesSigned:0};
+        const twRate=thisWeek.totalApplications>0?(thisWeek.leasesSigned/thisWeek.totalApplications):0;
+        const lwRate=lastWeek.totalApplications>0?(lastWeek.leasesSigned/lastWeek.totalApplications):0;
+        const drop=lwRate-twRate;
+        return{agent:ag,twRate:(twRate*100).toFixed(0),lwRate:(lwRate*100).toFixed(0),drop:(drop*100).toFixed(0)};
+    }).filter(a=>parseFloat(a.drop)>20).sort((a,b)=>parseFloat(b.drop)-parseFloat(a.drop));
+
+    const hasAlerts=atRiskDeals.length>0||staleApplications.length>0||pipelineConcerns.length>0||conversionDrops.length>0;
+
+    const tabs=[
+        {key:'all',label:'All Properties',color:'#64748B'},
+        {key:'brickell',label:'Brickell',color:'#0EA5E9'},
+        {key:'west',label:'West',color:'#8B5CF6'},
+        {key:'east',label:'East',color:'#10B981'},
+        {key:'ftl',label:'FTL',color:'#14B8A6'}
+    ];
+
+    const activeColor=tabs.find(t=>t.key===riskTab)?.color||'#64748B';
+    const activeLabel=tabs.find(t=>t.key===riskTab)?.label||'All Properties';
+
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6 border-l-4 ${hasAlerts?'border-red-500':'border-green-500'}">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">${hasAlerts?'🚨':'✅'} Risk Alert System</h2>
+        <div class="flex gap-2 mb-5 flex-wrap">
+            ${tabs.map(t=>{
+                const isActive=riskTab===t.key;
+                return`<button onclick="chRisk('${t.key}')" class="px-4 py-2 rounded font-semibold text-sm transition-all ${isActive?'text-white shadow-md':'bg-gray-100 text-gray-600 hover:bg-gray-200'}" style="${isActive?`background-color:${t.color};`:''}">
+                    ${t.label}
+                </button>`;
+            }).join('')}
+        </div>
+        ${!hasAlerts
+            ?`<div class="p-4 bg-green-50 rounded-lg border border-green-200"><p class="text-green-700 font-semibold">✓ No critical risks detected for ${activeLabel}</p></div>`
+            :`<div class="space-y-4">
+                ${atRiskDeals.length>0?`<div class="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                    <h3 class="font-semibold text-red-800 mb-2">🔴 Critical: ${atRiskDeals.length} Stale Approvals (>36hrs)</h3>
+                    <div class="space-y-2">
+                        ${atRiskDeals.map(d=>{
+                            const hrs=((n-d.approvalDate)/3600000).toFixed(0);
+                            return`<div class="text-sm bg-white p-2 rounded flex justify-between items-start">
+                                <div><strong>${d.applicant}</strong> — ${d.property} ${d.unit}<div class="text-xs text-gray-600 mt-1">Agent: <span class="font-semibold">${nag(d.agent)||d.agent||'Unassigned'}</span></div></div>
+                                <div class="text-xs text-gray-500 text-right font-semibold text-red-600">${hrs}hrs ago</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`:''}
+                ${staleApplications.length>0?`<div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
+                    <h3 class="font-semibold text-orange-800 mb-2">⚠️ Warning: ${staleApplications.length} Stale Applications (>24hrs)</h3>
+                    <div class="space-y-2">
+                        ${staleApplications.map(d=>{
+                            const hrs=((n-d.applicationDate)/3600000).toFixed(0);
+                            return`<div class="text-sm bg-white p-2 rounded flex justify-between items-start">
+                                <div><strong>${d.applicant}</strong> — ${d.property} ${d.unit}<div class="text-xs text-gray-600 mt-1">Agent: <span class="font-semibold">${nag(d.agent)||d.agent||'Unassigned'}</span></div></div>
+                                <div class="text-xs text-gray-500 text-right font-semibold text-orange-600">${hrs}hrs waiting</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`:''}
+                ${pipelineConcerns.length>0?`<div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500">
+                    <h3 class="font-semibold text-yellow-800 mb-2">⚡ Pipeline Alert</h3>
+                    <div class="space-y-2">
+                        ${pipelineConcerns.map(c=>`<div class="text-sm bg-white p-2 rounded">
+                            <strong>${c.property.toUpperCase()}</strong>: ${c.apps} apps this week
+                            <div class="text-xs text-gray-600">${c.concern}</div>
+                        </div>`).join('')}
+                    </div>
+                </div>`:''}
+                ${conversionDrops.length>0?`<div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+                    <h3 class="font-semibold text-purple-800 mb-2">📉 Conversion Drops (WTD vs Last Week)</h3>
+                    <div class="space-y-2">
+                        ${conversionDrops.slice(0,5).map(a=>`<div class="text-sm bg-white p-2 rounded flex justify-between items-center">
+                            <strong>${a.agent}</strong>
+                            <span class="text-xs text-gray-600">WTD: ${a.twRate}% → LW: ${a.lwRate}% <span class="text-red-600 font-semibold">(↓${a.drop}%)</span></span>
+                        </div>`).join('')}
+                    </div>
+                </div>`:''}
+            </div>`
+        }
+    </div>`;
+}
+
+function conversionAnalysis(){
+    const ms=gms(),lms=glms(),lme=glme();
+    const period=convView==='mtd'?{start:ms,end:null}:{start:lms,end:lme};
+    const filterByPeriod=(apps)=>apps.filter(a=>{if(!period.end)return a.applicationDate>=period.start;return a.applicationDate>=period.start&&a.applicationDate<=period.end;});
+    const brickellData=calcConversion(filterByPeriod(data.brickell));
+    const westData=calcConversion(filterByPeriod(data.west));
+    const eastData=calcConversion(filterByPeriod(data.east));
+    const ftlData=calcConversion(filterByPeriod(data.ftl));
+    const allData=calcConversion(filterByPeriod([...data.brickell,...data.west,...data.east,...data.ftl]));
+    const title=convView==='mtd'?'MTD (Feb 2026)':'Last Month (Jan 2026)';
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">🔄 Conversion Funnel</h2><div class="flex gap-2 mb-4">${['mtd','lastmonth'].map(v=>`<button onclick="chConv('${v}')"class="px-4 py-2 rounded font-semibold ${convView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='mtd'?'This Month':'Last Month'}</button>`).join('')}</div><div class="mb-2 text-sm text-gray-600">${title}</div><div class="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg"><h3 class="font-semibold text-gray-800 mb-3">Portfolio Overview</h3><div class="grid grid-cols-4 gap-4"><div><div class="text-xs text-gray-600 mb-1">Total Apps</div><div class="text-2xl font-bold text-blue-600">${allData.totalApps}</div></div><div><div class="text-xs text-gray-600 mb-1">App → Approval</div><div class="text-2xl font-bold text-orange-600">${allData.appToApproval}%</div><div class="text-xs text-gray-500">${allData.withApproval} approved</div></div><div><div class="text-xs text-gray-600 mb-1">Approval → Lease</div><div class="text-2xl font-bold text-green-600">${allData.approvalToLease}%</div><div class="text-xs text-gray-500">${allData.withLease} signed</div></div><div><div class="text-xs text-gray-600 mb-1">App → Lease</div><div class="text-2xl font-bold text-purple-600">${allData.appToLease}%</div><div class="text-xs text-gray-500">End-to-end</div></div></div></div><div class="grid grid-cols-4 gap-4"><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-blue-600 mb-2">Brickell</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold">${brickellData.appToApproval}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold">${brickellData.approvalToLease}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">App → Lease:</span><span class="font-bold text-purple-600">${brickellData.appToLease}%</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-purple-600 mb-2">West</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold">${westData.appToApproval}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold">${westData.approvalToLease}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">App → Lease:</span><span class="font-bold text-purple-600">${westData.appToLease}%</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-green-600 mb-2">East</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold">${eastData.appToApproval}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold">${eastData.approvalToLease}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">App → Lease:</span><span class="font-bold text-purple-600">${eastData.appToLease}%</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-teal-600 mb-2">FTL</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold">${ftlData.appToApproval}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold">${ftlData.approvalToLease}%</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">App → Lease:</span><span class="font-bold text-purple-600">${ftlData.appToLease}%</span></div></div></div></div></div>`;
+}
+
+function agentEfficiency(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const ms=gms();
+    const mtdStats=cap(all,effView);
+    const remoteAdminAgents=['Zackery Faszczewski','Estephania Delgadillo','Estephanie Cardenas'];
+    const lms=glms(),lme=glme();
+    const period=effView==='mtd'?{start:ms,end:null}:{start:lms,end:lme};
+    const agentMetrics=Object.entries(mtdStats).filter(([agent])=>!remoteAdminAgents.includes(agent)).map(([agent,stats])=>{
+        const agentApps=all.filter(a=>{const ag=nag(a.agent);if(ag!==agent)return false;if(!period.end)return a.applicationDate>=period.start;return a.applicationDate>=period.start&&a.applicationDate<=period.end;});
+        const vel=calcVelocity(agentApps);
+        const efficiency=stats.pendingApplications>0?(stats.leasesSigned/stats.pendingApplications*10).toFixed(1):0;
+        const closeRate=stats.totalApplications>0?((stats.leasesSigned/stats.totalApplications)*100).toFixed(0):0;
+        const speed=parseFloat(vel.avgAppToApproval)+parseFloat(vel.avgApprovalToLease);
+        const highVolume=stats.leasesSigned>=8;
+        const highEfficiency=parseFloat(closeRate)>=40;
+        let quadrant,color;
+        if(highVolume&&highEfficiency){quadrant='Star';color='#10B981';}
+        else if(highVolume&&!highEfficiency){quadrant='Grinder';color='#F59E0B';}
+        else if(!highVolume&&highEfficiency){quadrant='Closer';color='#3B82F6';}
+        else{quadrant='Developing';color='#EF4444';}
+        return{agent,leases:stats.leasesSigned,closeRate,efficiency,speed:speed.toFixed(1),quadrant,color,pending:stats.pendingApplications};
+    }).sort((a,b)=>b.leases-a.leases);
+    const title=effView==='mtd'?'MTD (Feb 2026)':'Last Month (Jan 2026)';
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Agent Efficiency Matrix</h2><div class="flex gap-2 mb-4">${['mtd','lastmonth'].map(v=>`<button onclick="chEff('${v}')"class="px-4 py-2 rounded font-semibold ${effView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='mtd'?'This Month':'Last Month'}</button>`).join('')}</div><div class="mb-2 text-sm text-gray-600">${title}</div><div class="mb-4 grid grid-cols-4 gap-4">${[{q:'Star',d:'High Volume + High Efficiency',c:'#10B981'},{q:'Grinder',d:'High Volume, Lower Efficiency',c:'#F59E0B'},{q:'Closer',d:'Lower Volume, High Efficiency',c:'#3B82F6'},{q:'Developing',d:'Needs Support',c:'#EF4444'}].map(t=>{const agents=agentMetrics.filter(a=>a.quadrant===t.q);return`<div class="p-3 rounded border-2"style="border-color:${t.c}"><div class="font-semibold mb-1"style="color:${t.c}">${t.q}</div><div class="text-xs text-gray-600 mb-2">${t.d}</div><div class="text-2xl font-bold"style="color:${t.c}">${agents.length}</div><div class="text-xs text-gray-500">${agents.map(a=>a.agent.split(' ')[0]).join(', ')||'None'}</div></div>`;}).join('')}</div><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="px-3 py-2 text-left">Agent</th><th class="px-3 py-2 text-center">Leases</th><th class="px-3 py-2 text-center">Close%</th><th class="px-3 py-2 text-center">Efficiency</th><th class="px-3 py-2 text-center">Avg Speed</th><th class="px-3 py-2 text-center">Category</th></tr></thead><tbody>${agentMetrics.map((a,i)=>`<tr class="${i%2===0?'bg-white':'bg-gray-50'}"><td class="px-3 py-2 font-medium">${a.agent}</td><td class="px-3 py-2 text-center font-bold text-green-600">${a.leases}</td><td class="px-3 py-2 text-center"><span class="px-2 py-1 rounded text-xs font-semibold ${parseFloat(a.closeRate)>=50?'bg-green-100 text-green-800':parseFloat(a.closeRate)>=30?'bg-yellow-100 text-yellow-800':'bg-red-100 text-red-800'}">${a.closeRate}%</span></td><td class="px-3 py-2 text-center text-purple-600 font-semibold">${a.efficiency}</td><td class="px-3 py-2 text-center ${parseFloat(a.speed)<=3?'text-green-600':parseFloat(a.speed)<=5?'text-orange-600':'text-red-600'}font-semibold">${a.speed}d</td><td class="px-3 py-2 text-center"><span class="px-2 py-1 rounded text-xs font-bold text-white"style="background-color:${a.color}">${a.quadrant}</span></td></tr>`).join('')}</tbody></table><div class="mt-4 grid grid-cols-3 gap-4 text-xs"><div class="bg-purple-50 p-3 rounded"><strong>Efficiency:</strong> Leases per 10 active deals</div><div class="bg-blue-50 p-3 rounded"><strong>Avg Speed:</strong> App→Approval + Approval→Lease time</div><div class="bg-green-50 p-3 rounded"><strong>Close Rate:</strong> Leases ÷ Applications</div></div></div>`;
+}
+
+function agentCoaching(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const ms=gms(),lms=glms(),lme=glme();
+    const mtdStats=cap(all,coachView);
+    const remoteAdminAgents=['Zackery Faszczewski','Estephania Delgadillo','Estephanie Cardenas'];
+    const period=coachView==='mtd'?{start:ms,end:null}:{start:lms,end:lme};
+    const recommendations=Object.entries(mtdStats).filter(([agent])=>!remoteAdminAgents.includes(agent)).map(([agent,stats])=>{
+        const agentApps=all.filter(a=>{const ag=nag(a.agent);if(ag!==agent)return false;if(!period.end)return a.applicationDate>=period.start;return a.applicationDate>=period.start&&a.applicationDate<=period.end;});
+        const vel=calcVelocity(agentApps);
+        const closeRate=stats.totalApplications>0?((stats.leasesSigned/stats.totalApplications)*100):0;
+        const insights=[];
+        if(parseFloat(vel.avgAppToApproval)>1.5)insights.push({type:'speed',text:`Approval time: ${vel.avgAppToApproval}d (target <1d) - streamline screening`,priority:1});
+        if(parseFloat(vel.avgApprovalToLease)>3)insights.push({type:'speed',text:`Lease signing: ${vel.avgApprovalToLease}d (target <2d) - improve follow-up`,priority:1});
+        if(closeRate<35&&stats.totalApplications>=5)insights.push({type:'conversion',text:`Close rate: ${closeRate.toFixed(0)}% (target 40%+) - work on sales technique`,priority:2});
+        if(stats.leasesSigned>=10&&closeRate>=45)insights.push({type:'praise',text:`Strong performer! ${stats.leasesSigned} leases at ${closeRate.toFixed(0)}% close rate`,priority:0});
+        if(stats.totalApplications<8)insights.push({type:'volume',text:`Low volume: ${stats.totalApplications} apps - increase lead generation`,priority:2});
+        if(coachView==='mtd'&&stats.pendingApplications>15)insights.push({type:'workload',text:`Heavy load: ${stats.pendingApplications} active deals - consider support`,priority:1});
+        insights.sort((a,b)=>a.priority-b.priority);
+        return{agent,insights:insights.slice(0,2),leases:stats.leasesSigned};
+    }).filter(a=>a.insights.length>0).sort((a,b)=>b.leases-a.leases);
+    const title2=coachView==='mtd'?'MTD (Feb 2026)':'Last Month (Jan 2026)';
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">🎓 Agent Coaching Insights</h2><div class="flex gap-2 mb-4">${['mtd','lastmonth'].map(v=>`<button onclick="chCoach('${v}')"class="px-4 py-2 rounded font-semibold ${coachView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='mtd'?'This Month':'Last Month'}</button>`).join('')}</div><div class="mb-2 text-sm text-gray-600">${title2}</div>${recommendations.length===0?`<div class="p-4 bg-green-50 rounded"><p class="text-green-700">✓ All agents performing within expected parameters</p></div>`:`<div class="grid grid-cols-2 gap-4">${recommendations.map(r=>`<div class="p-4 bg-gray-50 rounded border-l-4 ${r.insights[0].type==='praise'?'border-green-500':r.insights[0].priority===1?'border-orange-500':'border-blue-400'}"><div class="font-semibold text-gray-800 mb-2">${r.agent}</div><div class="space-y-2">${r.insights.map(ins=>`<div class="text-sm ${ins.type==='praise'?'text-green-700':ins.priority===1?'text-orange-700':'text-blue-700'}">• ${ins.text}</div>`).join('')}</div></div>`).join('')}</div>`}</div>`;
+}
+
+function velocityMetrics(){
+    const ms=gms(),lms=glms(),lme=glme();
+    const period=velView==='mtd'?{start:ms,end:null}:{start:lms,end:lme};
+    const filterByPeriod=(apps)=>apps.filter(a=>{if(!period.end)return a.applicationDate>=period.start;return a.applicationDate>=period.start&&a.applicationDate<=period.end;});
+    const brickellVel=calcVelocity(filterByPeriod(data.brickell));
+    const westVel=calcVelocity(filterByPeriod(data.west));
+    const eastVel=calcVelocity(filterByPeriod(data.east));
+    const ftlVel=calcVelocity(filterByPeriod(data.ftl));
+    const allVel=calcVelocity(filterByPeriod([...data.brickell,...data.west,...data.east,...data.ftl]));
+    const title=velView==='mtd'?'MTD (Feb 2026)':'Last Month (Jan 2026)';
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Velocity Metrics</h2><div class="flex gap-2 mb-4">${['mtd','lastmonth'].map(v=>`<button onclick="chVel('${v}')"class="px-4 py-2 rounded font-semibold ${velView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='mtd'?'This Month':'Last Month'}</button>`).join('')}</div><div class="mb-2 text-sm text-gray-600">${title}</div><div class="mb-4 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg"><h3 class="font-semibold text-gray-800 mb-3">Portfolio Average</h3><div class="grid grid-cols-2 gap-6"><div><div class="text-xs text-gray-600 mb-1">App → Approval Time</div><div class="text-3xl font-bold ${parseFloat(allVel.avgAppToApproval)<=1?'text-green-600':parseFloat(allVel.avgAppToApproval)<=2?'text-orange-600':'text-red-600'}">${allVel.avgAppToApproval} days</div><div class="text-xs text-gray-500">${allVel.appToApprovalCount} samples</div></div><div><div class="text-xs text-gray-600 mb-1">Approval → Lease Time</div><div class="text-3xl font-bold ${parseFloat(allVel.avgApprovalToLease)<=2?'text-green-600':parseFloat(allVel.avgApprovalToLease)<=4?'text-orange-600':'text-red-600'}">${allVel.avgApprovalToLease} days</div><div class="text-xs text-gray-500">${allVel.approvalToLeaseCount} samples</div></div></div></div><div class="grid grid-cols-4 gap-4"><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-blue-600 mb-2">Brickell</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold ${parseFloat(brickellVel.avgAppToApproval)<=1?'text-green-600':'text-orange-600'}">${brickellVel.avgAppToApproval}d</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold ${parseFloat(brickellVel.avgApprovalToLease)<=2?'text-green-600':'text-orange-600'}">${brickellVel.avgApprovalToLease}d</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-purple-600 mb-2">West</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold ${parseFloat(westVel.avgAppToApproval)<=1?'text-green-600':'text-orange-600'}">${westVel.avgAppToApproval}d</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold ${parseFloat(westVel.avgApprovalToLease)<=2?'text-green-600':'text-orange-600'}">${westVel.avgApprovalToLease}d</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-green-600 mb-2">East</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold ${parseFloat(eastVel.avgAppToApproval)<=1?'text-green-600':'text-orange-600'}">${eastVel.avgAppToApproval}d</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold ${parseFloat(eastVel.avgApprovalToLease)<=2?'text-green-600':'text-orange-600'}">${eastVel.avgApprovalToLease}d</span></div></div></div><div class="p-4 bg-gray-50 rounded"><div class="font-semibold text-teal-600 mb-2">FTL</div><div class="space-y-2"><div class="flex justify-between text-sm"><span class="text-gray-600">App → Approval:</span><span class="font-semibold ${parseFloat(ftlVel.avgAppToApproval)<=1?'text-green-600':'text-orange-600'}">${ftlVel.avgAppToApproval}d</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Approval → Lease:</span><span class="font-semibold ${parseFloat(ftlVel.avgApprovalToLease)<=2?'text-green-600':'text-orange-600'}">${ftlVel.avgApprovalToLease}d</span></div></div></div></div></div>`;
+}
+
+function trendDashboard(){
+    const wtd=cpm([...data.brickell,...data.west,...data.east,...data.ftl],'wtd');
+    const lw=cpm([...data.brickell,...data.west,...data.east,...data.ftl],'lastweek');
+    const wbl=cpm([...data.brickell,...data.west,...data.east,...data.ftl],'weekbeforelast');
+    const mtd=cpm([...data.brickell,...data.west,...data.east,...data.ftl],'mtd');
+    const lm=cpm([...data.brickell,...data.west,...data.east,...data.ftl],'lastmonth');
+    const appTrend=((wtd.totalApps-lw.totalApps)/Math.max(1,lw.totalApps)*100).toFixed(0);
+    const conversionTrend=((parseFloat(wtd.leasesSignedCount/Math.max(1,wtd.totalApps))-parseFloat(lw.leasesSignedCount/Math.max(1,lw.totalApps)))*100).toFixed(0);
+    const momAppTrend=((mtd.totalApps-lm.totalApps)/Math.max(1,lm.totalApps)*100).toFixed(0);
+    const momLeaseTrend=((mtd.leasesSignedCount-lm.leasesSignedCount)/Math.max(1,lm.leasesSignedCount)*100).toFixed(0);
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Performance Trends</h2><div class="grid grid-cols-2 gap-6"><div class="p-4 bg-blue-50 rounded-lg"><h3 class="font-semibold text-blue-700 mb-3">Week-over-Week</h3><div class="space-y-3"><div class="flex justify-between items-center"><span class="text-sm text-gray-700">Application Volume:</span><span class="text-lg font-bold ${parseFloat(appTrend)>=0?'text-green-600':'text-red-600'}">${parseFloat(appTrend)>=0?'+':''}${appTrend}%</span></div><div class="text-xs text-gray-600">This week: ${wtd.totalApps} vs Last week: ${lw.totalApps}</div></div></div><div class="p-4 bg-purple-50 rounded-lg"><h3 class="font-semibold text-purple-700 mb-3">Month-over-Month</h3><div class="space-y-3"><div class="flex justify-between items-center"><span class="text-sm text-gray-700">Application Volume:</span><span class="text-lg font-bold ${parseFloat(momAppTrend)>=0?'text-green-600':'text-red-600'}">${parseFloat(momAppTrend)>=0?'+':''}${momAppTrend}%</span></div><div class="text-xs text-gray-600">Feb MTD: ${mtd.totalApps} vs Jan: ${lm.totalApps}</div></div></div></div></div>`;
+}
+
+function pipelineHealth(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const ms=gms();
+    const pipeline=all.filter(a=>{const st=(a.status||'').toLowerCase();const ag=(a.agent||'').toLowerCase().trim();return(st.includes('submit')||st.includes('pending')||st.includes('approved'))&&!ag.includes('marketing')&&ag!=='flow';});
+    const approved=pipeline.filter(a=>(a.status||'').toLowerCase().includes('approved')).length;
+    const qualityScore=pipeline.length>0?(approved/pipeline.length*100):0;
+    const vel=calcVelocity(all.filter(a=>a.applicationDate>=ms));
+    const velocityScore=100-Math.min(100,(parseFloat(vel.avgAppToApproval)*20+parseFloat(vel.avgApprovalToLease)*10));
+    const mtd=cpm(all,'mtd');
+    const daysLeft=Math.max(1,28-Math.floor((getNow()-ms)/86400000));
+    const totalGoal=GOALS.brickell+GOALS.west+GOALS.east+GOALS.ftl;
+    const remaining=totalGoal-mtd.leasesSignedCount;
+    const pipelineNeeded=remaining*1.5;
+    const volumeScore=Math.min(100,(pipeline.length/pipelineNeeded)*100);
+    const overallHealth=(qualityScore*0.3+velocityScore*0.3+volumeScore*0.4);
+    let healthStatus,healthColor;
+    if(overallHealth>=70){healthStatus='Healthy';healthColor='#10B981';}
+    else if(overallHealth>=50){healthStatus='Caution';healthColor='#F59E0B';}
+    else{healthStatus='Critical';healthColor='#EF4444';}
+    return`<div class="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg shadow-xl p-6 text-white mb-6"><h2 class="text-2xl font-bold mb-4">💚 Pipeline Health Score</h2><div class="flex justify-between items-center mb-4"><div><div class="text-sm opacity-90">Overall Health</div><div class="text-5xl font-bold">${overallHealth.toFixed(0)}</div></div><div class="text-right"><div class="px-4 py-2 rounded-lg text-2xl font-bold"style="background-color:${healthColor}">${healthStatus}</div></div></div><div class="grid grid-cols-3 gap-4"><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="text-sm opacity-90 mb-1">Quality</div><div class="text-3xl font-bold">${qualityScore.toFixed(0)}</div><div class="text-xs opacity-75 mt-1">${approved}/${pipeline.length} approved</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="text-sm opacity-90 mb-1">Velocity</div><div class="text-3xl font-bold">${velocityScore.toFixed(0)}</div><div class="text-xs opacity-75 mt-1">Speed vs targets</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="text-sm opacity-90 mb-1">Volume</div><div class="text-3xl font-bold">${volumeScore.toFixed(0)}</div><div class="text-xs opacity-75 mt-1">${pipeline.length} vs ${pipelineNeeded.toFixed(0)} needed</div></div></div></div>`;
+}
+
+function unitTypeIntel(){
+    const ms=gms(),lms=glms(),lme=glme();
+    const analyzeProperty=(propData,propName)=>{
+        const unitStats={};
+        propData.forEach(a=>{
+            const ag=(a.agent||'').toLowerCase().trim();
+            if(ag.includes('marketing')||ag==='flow')return;
+            let include=false;
+            if(unitView==='mtd'&&a.applicationDate>=ms)include=true;
+            if(unitView==='lastmonth'&&a.applicationDate>=lms&&a.applicationDate<=lme)include=true;
+            if(unitView==='historical')include=true;
+            if(!include)return;
+            const ut=parseUnit(a.unitType||a.unit,propName);
+            if(!unitStats[ut])unitStats[ut]={apps:0,approved:0,leased:0,cancelled:0};
+            unitStats[ut].apps++;
+            if(a.approvalDate)unitStats[ut].approved++;
+            if(a.originalLeaseExecuted)unitStats[ut].leased++;
+            const st=(a.status||'').toLowerCase();
+            if(st.includes('cancel')||st.includes('denied'))unitStats[ut].cancelled++;
+        });
+        return Object.entries(unitStats).filter(([type])=>type!=='Unknown').map(([type,stats])=>({type,apps:stats.apps,conversionRate:stats.apps>0?(stats.leased/stats.apps*100).toFixed(1):0,approvalRate:stats.apps>0?(stats.approved/stats.apps*100).toFixed(1):0,cancelRate:stats.apps>0?(stats.cancelled/stats.apps*100).toFixed(1):0,leased:stats.leased})).sort((a,b)=>parseFloat(b.conversionRate)-parseFloat(a.conversionRate));
+    };
+    const brickellMetrics=analyzeProperty(data.brickell,'Brickell');
+    const westMetrics=analyzeProperty(data.west,'West');
+    const eastMetrics=analyzeProperty(data.east,'East');
+    const ftlMetrics=analyzeProperty(data.ftl,'FTL');
+    const renderPropertyTable=(metrics,propName,color)=>{
+        if(metrics.length===0)return`<div class="text-sm text-gray-500 italic">No data for ${propName}</div>`;
+        return`<div><h3 class="font-semibold mb-2"style="color:${color}">${propName}</h3><table class="w-full text-xs"><thead class="bg-gray-50"><tr><th class="px-2 py-2 text-left">Type</th><th class="px-2 py-2 text-center">Apps</th><th class="px-2 py-2 text-center">Leased</th><th class="px-2 py-2 text-center">Conv%</th><th class="px-2 py-2 text-center">Status</th></tr></thead><tbody>${metrics.map((u,i)=>{const perf=parseFloat(u.conversionRate);let perfLabel,perfColor;if(perf>=50){perfLabel='Exc';perfColor='#10B981';}else if(perf>=35){perfLabel='Good';perfColor='#3B82F6';}else if(perf>=20){perfLabel='Fair';perfColor='#F59E0B';}else{perfLabel='Poor';perfColor='#EF4444';}return`<tr class="${i%2===0?'bg-white':'bg-gray-50'}"><td class="px-2 py-2 font-medium">${u.type}</td><td class="px-2 py-2 text-center text-blue-600">${u.apps}</td><td class="px-2 py-2 text-center text-green-600 font-semibold">${u.leased}</td><td class="px-2 py-2 text-center font-bold text-purple-600">${u.conversionRate}%</td><td class="px-2 py-2 text-center"><span class="px-2 py-1 rounded text-xs font-bold text-white"style="background-color:${perfColor}">${perfLabel}</span></td></tr>`;}).join('')}</tbody></table></div>`;
+    };
+    const title=unitView==='mtd'?'This Month (Feb 2026)':unitView==='lastmonth'?'Last Month (Jan 2026)':'Historical (All-Time)';
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">🏢 Unit Type Intelligence</h2><div class="flex gap-2 mb-4">${['mtd','lastmonth','historical'].map(v=>`<button onclick="chUnit('${v}')"class="px-4 py-2 rounded font-semibold ${unitView===v?'bg-blue-500 text-white':'bg-gray-200 text-gray-700'}">${v==='mtd'?'This Month':v==='lastmonth'?'Last Month':'Historical'}</button>`).join('')}</div><div class="mb-4 text-sm text-gray-600">${title}</div><div class="grid grid-cols-4 gap-6">${renderPropertyTable(brickellMetrics,'Brickell','#0EA5E9')}${renderPropertyTable(westMetrics,'West','#8B5CF6')}${renderPropertyTable(eastMetrics,'East','#10B981')}${renderPropertyTable(ftlMetrics,'FTL','#14B8A6')}</div></div>`;
+}
+
+function seasonalUnitPerformance(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const monthlyData={};
+    all.forEach(a=>{
+        const ag=(a.agent||'').toLowerCase().trim();
+        if(ag.includes('marketing')||ag==='flow')return;
+        if(!a.applicationDate)return;
+        const monthKey=`${a.applicationDate.getFullYear()}-${String(a.applicationDate.getMonth()+1).padStart(2,'0')}`;
+        const ut=parseUnit(a.unitType||a.unit,a.property);
+        if(ut==='Unknown')return;
+        if(!monthlyData[monthKey])monthlyData[monthKey]={};
+        if(!monthlyData[monthKey][ut])monthlyData[monthKey][ut]={apps:0,leased:0};
+        monthlyData[monthKey][ut].apps++;
+        if(a.originalLeaseExecuted)monthlyData[monthKey][ut].leased++;
+    });
+    const unitTypeBestMonths={};
+    const unitTypeWorstMonths={};
+    Object.keys(monthlyData).forEach(month=>{
+        Object.keys(monthlyData[month]).forEach(unitType=>{
+            const data=monthlyData[month][unitType];
+            const convRate=data.apps>=3?(data.leased/data.apps*100):0;
+            if(data.apps>=3){
+                if(!unitTypeBestMonths[unitType]||convRate>unitTypeBestMonths[unitType].rate){
+                    unitTypeBestMonths[unitType]={month,rate:convRate.toFixed(1),leased:data.leased,apps:data.apps};
+                }
+                if(!unitTypeWorstMonths[unitType]||convRate<unitTypeWorstMonths[unitType].rate){
+                    unitTypeWorstMonths[unitType]={month,rate:convRate.toFixed(1),leased:data.leased,apps:data.apps};
+                }
+            }
+        });
+    });
+    const monthNames={'2026-02':'Feb 2026','2026-01':'Jan 2026','2025-12':'Dec 2025','2025-11':'Nov 2025','2025-10':'Oct 2025','2025-09':'Sep 2025','2025-08':'Aug 2025','2025-07':'Jul 2025','2025-06':'Jun 2025','2025-05':'May 2025','2025-04':'Apr 2025','2025-03':'Mar 2025','2025-02':'Feb 2025','2025-01':'Jan 2025'};
+    const sortedUnits=Object.keys(unitTypeBestMonths).sort();
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Seasonal Unit Type Performance</h2><div class="mb-2 text-sm text-gray-600">Peak and trough months by unit type (min 3 apps)</div>${sortedUnits.length===0?`<div class="p-4 bg-gray-50 rounded"><p class="text-gray-600">Insufficient data</p></div>`:`<div class="grid grid-cols-1 gap-4">${sortedUnits.map(unitType=>{const best=unitTypeBestMonths[unitType];const worst=unitTypeWorstMonths[unitType];const spread=parseFloat(best.rate)-parseFloat(worst.rate);return`<div class="p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border-l-4 border-indigo-400"><div class="mb-3"><div class="text-xl font-bold text-gray-800 mb-1">${unitType}</div><div class="text-sm text-gray-600">Variance: ${spread.toFixed(1)}% spread</div></div><div class="grid grid-cols-2 gap-4"><div class="p-3 bg-green-50 rounded border border-green-200"><div class="flex justify-between items-center mb-2"><div class="text-xs text-green-700 font-semibold">🟢 BEST</div><div class="text-2xl font-bold text-green-600">${best.rate}%</div></div><div class="text-sm font-semibold text-gray-800">${monthNames[best.month]||best.month}</div><div class="text-xs text-gray-600">${best.leased}/${best.apps} leases</div></div><div class="p-3 bg-red-50 rounded border border-red-200"><div class="flex justify-between items-center mb-2"><div class="text-xs text-red-700 font-semibold">🔴 WORST</div><div class="text-2xl font-bold text-red-600">${worst.rate}%</div></div><div class="text-sm font-semibold text-gray-800">${monthNames[worst.month]||worst.month}</div><div class="text-xs text-gray-600">${worst.leased}/${worst.apps} leases</div></div></div></div>`;}).join('')}</div>`}</div>`;
+}
+
+function monthEndForecast(){
+    const brickellForecast=forecastMonthEnd(data.brickell,GOALS.brickell);
+    const westForecast=forecastMonthEnd(data.west,GOALS.west);
+    const eastForecast=forecastMonthEnd(data.east,GOALS.east);
+    const ftlForecast=forecastMonthEnd(data.ftl,GOALS.ftl);
+    const totalCurrent=brickellForecast.currentLeases+westForecast.currentLeases+eastForecast.currentLeases+ftlForecast.currentLeases;
+    const totalProjected=brickellForecast.projectedTotal+westForecast.projectedTotal+eastForecast.projectedTotal+ftlForecast.projectedTotal;
+    const totalGoal=GOALS.brickell+GOALS.west+GOALS.east+GOALS.ftl;
+    const overallProb=totalProjected>=totalGoal?Math.min(95,70+((totalProjected-totalGoal)/totalGoal*100)):Math.max(5,70-((totalGoal-totalProjected)/totalGoal*100));
+    return`<div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-xl p-6 text-white mb-6"><h2 class="text-2xl font-bold mb-4">🔮 Month-End Forecast</h2><div class="mb-4 p-4 bg-white bg-opacity-20 rounded-lg"><div class="flex justify-between items-center mb-2"><span class="text-lg font-semibold">Portfolio Projection</span><span class="text-3xl font-bold">${totalProjected}/${totalGoal}</span></div><div class="w-full bg-white bg-opacity-30 rounded-full h-3 mb-2"><div class="bg-white rounded-full h-3"style="width:${Math.min(100,(totalProjected/totalGoal*100))}%"></div></div><div class="flex justify-between text-sm"><span>Current: ${totalCurrent} leases</span><span>Confidence: ${overallProb.toFixed(0)}%</span></div></div><div class="grid grid-cols-4 gap-4"><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="font-semibold mb-2">Brickell</div><div class="text-2xl font-bold mb-1">${brickellForecast.projectedTotal}/${GOALS.brickell}</div><div class="text-xs opacity-90">${brickellForecast.probabilityOfSuccess}% confidence</div><div class="text-xs opacity-75 mt-1">${brickellForecast.currentLeases} signed + ${brickellForecast.pipeline} pipeline</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="font-semibold mb-2">West</div><div class="text-2xl font-bold mb-1">${westForecast.projectedTotal}/${GOALS.west}</div><div class="text-xs opacity-90">${westForecast.probabilityOfSuccess}% confidence</div><div class="text-xs opacity-75 mt-1">${westForecast.currentLeases} signed + ${westForecast.pipeline} pipeline</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="font-semibold mb-2">East</div><div class="text-2xl font-bold mb-1">${eastForecast.projectedTotal}/${GOALS.east}</div><div class="text-xs opacity-90">${eastForecast.probabilityOfSuccess}% confidence</div><div class="text-xs opacity-75 mt-1">${eastForecast.currentLeases} signed + ${eastForecast.pipeline} pipeline</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="font-semibold mb-2">FTL</div><div class="text-2xl font-bold mb-1">${ftlForecast.projectedTotal}/${GOALS.ftl}</div><div class="text-xs opacity-90">${ftlForecast.probabilityOfSuccess}% confidence</div><div class="text-xs opacity-75 mt-1">${ftlForecast.currentLeases} signed + ${ftlForecast.pipeline} pipeline</div></div></div><div class="mt-4 text-sm opacity-90"><strong>${brickellForecast.daysRemaining} days remaining</strong></div></div>`;
+}
+
+function rpc(title,m,color){
+    const v24=m.violations24hr.length>0?`<div class="mb-4"><div class="text-sm font-semibold text-orange-600 mb-2">⚠️ Over 24hrs: ${m.violations24hr.length}</div><div class="space-y-2 max-h-64 overflow-y-auto">${m.violations24hr.slice(0,10).map(v=>`<div class="bg-orange-50 p-3 rounded text-sm border-l-2 border-orange-400"><div class="font-semibold">${v.applicant}-${v.unit}</div><div class="text-xs text-gray-600">Agent:${nag(v.agent)||v.agent||'Unassigned'}|${v.hoursOver}hrs</div></div>`).join('')}</div></div>`:'';
+    const v48=m.violations48hr.length>0?`<div><div class="text-sm font-semibold text-red-600 mb-2">🚨 Over 48hrs: ${m.violations48hr.length}</div><div class="space-y-2 max-h-64 overflow-y-auto">${m.violations48hr.slice(0,10).map(v=>`<div class="bg-red-50 p-3 rounded text-sm border-l-2 border-red-400"><div class="font-semibold">${v.applicant}-${v.unit}</div><div class="text-xs text-gray-600">Agent:${nag(v.agent)||v.agent||'Unassigned'}|${v.hoursOver}hrs</div></div>`).join('')}</div></div>`:'';
+    const agh=Object.keys(m.agentStats).length>0?`<div><h3 class="text-lg font-semibold mb-3">👥 Active Pipeline</h3><div class="space-y-2">${Object.entries(m.agentStats).sort((a,b)=>b[1].violations-a[1].violations).map(([ag,st])=>`<div class="flex justify-between items-center bg-gray-50 p-3 rounded"><span class="font-medium">${ag}</span><div class="text-sm"><span class="text-gray-600">${st.total} active</span>${st.violations>0?`<span class="ml-3 text-red-600 font-semibold">${st.violations} alerts</span>`:''}</div></div>`).join('')}</div></div>`:'';
+    return`<div class="bg-white rounded-lg shadow-lg p-6 border-l-4"style="border-left-color:${color}"><h2 class="text-2xl font-bold mb-4"style="color:${color}">${title}</h2><div class="grid grid-cols-2 gap-4 mb-6"><div class="bg-gray-50 p-4 rounded"><div class="text-sm text-gray-600">Leases(MTD)</div><div class="text-3xl font-bold"style="color:${color}">${m.leaseSigned}</div><div class="text-xs text-gray-500">Goal:${m.goal}</div></div><div class="bg-gray-50 p-4 rounded"><div class="text-sm text-gray-600">Progress</div><div class="text-3xl font-bold"style="color:${color}">${m.progressPercent}%</div><div class="text-xs text-gray-500">${m.remaining} needed</div></div><div class="bg-orange-50 p-4 rounded border-l-2 border-orange-500"><div class="text-sm text-orange-700 font-semibold">Daily Target</div><div class="text-3xl font-bold text-orange-600">${m.dailyPaceNeeded}</div><div class="text-xs text-gray-600">${m.daysRemaining} days left</div></div><div class="bg-gray-50 p-4 rounded"><div class="text-sm text-gray-600">Pipeline</div><div class="text-3xl font-bold text-blue-600">${m.activePipeline}</div></div></div><div class="mb-6"><h3 class="text-lg font-semibold mb-3">📋 Pipeline</h3><div class="grid grid-cols-3 gap-3"><div class="bg-yellow-50 p-3 rounded"><div class="text-xs text-yellow-700 font-semibold">Submitted</div><div class="text-2xl font-bold text-yellow-600">${m.stageBreakdown.submitted}</div></div><div class="bg-blue-50 p-3 rounded"><div class="text-xs text-blue-700 font-semibold">Pending</div><div class="text-2xl font-bold text-blue-600">${m.stageBreakdown.pending}</div></div><div class="bg-green-50 p-3 rounded"><div class="text-xs text-green-700 font-semibold">Approved</div><div class="text-2xl font-bold text-green-600">${m.stageBreakdown.approved}</div></div></div></div>${v24||v48?`<div class="mb-6"><h3 class="text-lg font-semibold mb-3">⚠️ Alerts</h3>${v24}${v48}</div>`:''}${agh}</div>`;
+}
+
+function rst(){
+    const n=getNow(),ms=new Date(2026,1,1),dim=28,dr=Math.max(1,dim-Math.floor((n-ms)/86400000));
+    const blw=cpm(data.brickell,'lastweek'),wlw=cpm(data.west,'lastweek'),elw=cpm(data.east,'lastweek'),flw=cpm(data.ftl,'lastweek');
+    const by=cpm(data.brickell,'yesterday'),wy=cpm(data.west,'yesterday'),ey=cpm(data.east,'yesterday'),fy=cpm(data.ftl,'yesterday');
+    const bm=cm(data.brickell,'brickell'),wm=cm(data.west,'west'),em=cm(data.east,'east'),fm=cm(data.ftl,'ftl');
+    const brickellMtd=cpm(data.brickell,'mtd');
+    const westMtd=cpm(data.west,'mtd');
+    const eastMtd=cpm(data.east,'mtd');
+    const ftlMtd=cpm(data.ftl,'mtd');
+    const brickellRemaining=Math.max(0,GOALS.brickell-brickellMtd.leasesSignedCount);
+    const westRemaining=Math.max(0,GOALS.west-westMtd.leasesSignedCount);
+    const eastRemaining=Math.max(0,GOALS.east-eastMtd.leasesSignedCount);
+    const ftlRemaining=Math.max(0,GOALS.ftl-ftlMtd.leasesSignedCount);
+    const bdt=(brickellRemaining/dr).toFixed(1);
+    const wdt=(westRemaining/dr).toFixed(1);
+    const edt=(eastRemaining/dr).toFixed(1);
+    const fdt=(ftlRemaining/dr).toFixed(1);
+    const bwt=((brickellRemaining/dr)*7).toFixed(1);
+    const wwt=((westRemaining/dr)*7).toFixed(1);
+    const ewt=((eastRemaining/dr)*7).toFixed(1);
+    const fwt=((ftlRemaining/dr)*7).toFixed(1);
+    const dt=parseFloat(bdt)+parseFloat(wdt)+parseFloat(edt)+parseFloat(fdt),wt=parseFloat(bwt)+parseFloat(wwt)+parseFloat(ewt)+parseFloat(fwt);
+    const lwt=blw.leasesSignedCount+wlw.leasesSignedCount+elw.leasesSignedCount+flw.leasesSignedCount,yt=by.leasesSignedCount+wy.leasesSignedCount+ey.leasesSignedCount+fy.leasesSignedCount;
+    const lws=`Last week: ${lwt} vs ${wt.toFixed(1)} needed. ${blw.leasesSignedCount>=parseFloat(bwt)?'✅':'🚨'} Brickell ${blw.leasesSignedCount}/${bwt}, ${wlw.leasesSignedCount>=parseFloat(wwt)?'✅':'🚨'} West ${wlw.leasesSignedCount}/${wwt}, ${elw.leasesSignedCount>=parseFloat(ewt)?'✅':'🚨'} East ${elw.leasesSignedCount}/${ewt}, ${flw.leasesSignedCount>=parseFloat(fwt)?'✅':'🚨'} FTL ${flw.leasesSignedCount}/${fwt}.`;
+    const ys=`Yesterday: ${yt} vs ${dt.toFixed(1)} needed. ${by.leasesSignedCount>=parseFloat(bdt)?'✅':'⚠️'} Brickell ${by.leasesSignedCount}/${bdt}, ${wy.leasesSignedCount>=parseFloat(wdt)?'✅':'⚠️'} West ${wy.leasesSignedCount}/${wdt}, ${ey.leasesSignedCount>=parseFloat(edt)?'✅':'⚠️'} East ${ey.leasesSignedCount}/${edt}, ${fy.leasesSignedCount>=parseFloat(fdt)?'✅':'⚠️'} FTL ${fy.leasesSignedCount}/${fdt}.`;
+    const t48=bm.violations48hr.length+wm.violations48hr.length+em.violations48hr.length+fm.violations48hr.length,t24=bm.violations24hr.length+wm.violations24hr.length+em.violations24hr.length+fm.violations24hr.length;
+    let ts=`TODAY: ${dt.toFixed(1)} leases (Brickell ${bdt}, West ${wdt}, East ${edt}, FTL ${fdt}). `;
+    const pr=[];
+    if(t48>0)pr.push(`Convert ${t48} stale approvals (B:${bm.violations48hr.length} W:${wm.violations48hr.length} E:${em.violations48hr.length} F:${fm.violations48hr.length})`);
+    if(t24>0)pr.push(`Approve ${t24} pending (B:${bm.violations24hr.length} W:${wm.violations24hr.length} E:${em.violations24hr.length} F:${fm.violations24hr.length})`);
+    if(pr.length>0)ts+=`PRIORITIES: ${pr.join(', ')}.`;
+    return`<div class="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg shadow-lg p-6 border-l-4 border-slate-600"><h3 class="text-xl font-bold text-gray-800 mb-4">📋 Strategic Summary</h3><div class="space-y-4"><div class="bg-white rounded-lg p-4 border-l-2 border-blue-400"><div class="text-xs text-blue-600 font-semibold uppercase mb-2">📅 Last Week</div><p class="text-sm text-gray-700">${lws}</p></div><div class="bg-white rounded-lg p-4 border-l-2 border-orange-400"><div class="text-xs text-orange-600 font-semibold uppercase mb-2">📊 Yesterday</div><p class="text-sm text-gray-700">${ys}</p></div><div class="bg-white rounded-lg p-4 border-l-2 border-green-400"><div class="text-xs text-green-600 font-semibold uppercase mb-2">🎯 Today</div><p class="text-sm text-gray-700">${ts}</p></div></div></div>`;
+}
+
+function execSummary(){
+    const all=[...data.brickell,...data.west,...data.east,...data.ftl];
+    const ms=gms();
+    const mtd=cpm(all,'mtd');
+    const totalGoal=GOALS.brickell+GOALS.west+GOALS.east+GOALS.ftl;
+    const progress=(mtd.leasesSignedCount/totalGoal*100).toFixed(0);
+    const brickellMtd=cpm(data.brickell,'mtd');
+    const westMtd=cpm(data.west,'mtd');
+    const eastMtd=cpm(data.east,'mtd');
+    const ftlMtd=cpm(data.ftl,'mtd');
+    const bProgress=(brickellMtd.leasesSignedCount/GOALS.brickell*100).toFixed(0);
+    const wProgress=(westMtd.leasesSignedCount/GOALS.west*100).toFixed(0);
+    const eProgress=(eastMtd.leasesSignedCount/GOALS.east*100).toFixed(0);
+    const fProgress=(ftlMtd.leasesSignedCount/GOALS.ftl*100).toFixed(0);
+    const bStatus=parseFloat(bProgress)>=50?'🟢':parseFloat(bProgress)>=30?'🟡':'🔴';
+    const wStatus=parseFloat(wProgress)>=50?'🟢':parseFloat(wProgress)>=30?'🟡':'🔴';
+    const eStatus=parseFloat(eProgress)>=50?'🟢':parseFloat(eProgress)>=30?'🟡':'🔴';
+    const fStatus=parseFloat(fProgress)>=50?'🟢':parseFloat(fProgress)>=30?'🟡':'🔴';
+    return`<div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-xl p-6 text-white mb-6"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">🎯 Executive Dashboard</h2><div class="text-right"><div class="text-sm opacity-90">Portfolio Progress</div><div class="text-4xl font-bold">${progress}%</div></div></div><div class="grid grid-cols-4 gap-4"><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="flex items-center justify-between mb-2"><span class="font-semibold">Brickell</span><span class="text-2xl">${bStatus}</span></div><div class="text-2xl font-bold">${brickellMtd.leasesSignedCount}/${GOALS.brickell}</div><div class="text-sm opacity-90">${bProgress}%</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="flex items-center justify-between mb-2"><span class="font-semibold">West</span><span class="text-2xl">${wStatus}</span></div><div class="text-2xl font-bold">${westMtd.leasesSignedCount}/${GOALS.west}</div><div class="text-sm opacity-90">${wProgress}%</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="flex items-center justify-between mb-2"><span class="font-semibold">East</span><span class="text-2xl">${eStatus}</span></div><div class="text-2xl font-bold">${eastMtd.leasesSignedCount}/${GOALS.east}</div><div class="text-sm opacity-90">${eProgress}%</div></div><div class="bg-white bg-opacity-20 rounded-lg p-4"><div class="flex items-center justify-between mb-2"><span class="font-semibold">FTL</span><span class="text-2xl">${fStatus}</span></div><div class="text-2xl font-bold">${ftlMtd.leasesSignedCount}/${GOALS.ftl}</div><div class="text-sm opacity-90">${fProgress}%</div></div></div></div>`;
+}
+
+function weeklyPace(){
+    const ws=gws(),n=getNow();
+    const dayOfWeek=n.getDay();
+    const daysIntoWeek=dayOfWeek===0?6:dayOfWeek-1;
+    const daysLeftInWeek=Math.max(1,7-daysIntoWeek);
+    const bwtd=cpm(data.brickell,'wtd');
+    const wwtd=cpm(data.west,'wtd');
+    const ewtd=cpm(data.east,'wtd');
+    const fwtd=cpm(data.ftl,'wtd');
+    const totalWtd=bwtd.leasesSignedCount+wwtd.leasesSignedCount+ewtd.leasesSignedCount+fwtd.leasesSignedCount;
+    const ms=new Date(2026,1,1),dim=28,dr=Math.max(1,dim-Math.floor((n-ms)/86400000));
+    const brickellMtd=cpm(data.brickell,'mtd');
+    const westMtd=cpm(data.west,'mtd');
+    const eastMtd=cpm(data.east,'mtd');
+    const ftlMtd=cpm(data.ftl,'mtd');
+    const brickellRemaining=Math.max(0,GOALS.brickell-brickellMtd.leasesSignedCount);
+    const westRemaining=Math.max(0,GOALS.west-westMtd.leasesSignedCount);
+    const eastRemaining=Math.max(0,GOALS.east-eastMtd.leasesSignedCount);
+    const ftlRemaining=Math.max(0,GOALS.ftl-ftlMtd.leasesSignedCount);
+    const brickellDailyNeed=(brickellRemaining/dr);
+    const westDailyNeed=(westRemaining/dr);
+    const eastDailyNeed=(eastRemaining/dr);
+    const ftlDailyNeed=(ftlRemaining/dr);
+    const weeklyTarget=(brickellDailyNeed+westDailyNeed+eastDailyNeed+ftlDailyNeed)*7;
+    const dailyRate=daysIntoWeek>0?(totalWtd/daysIntoWeek):0;
+    const projectedWeek=Math.round(totalWtd+(dailyRate*daysLeftInWeek));
+    const onPace=projectedWeek>=weeklyTarget;
+    const brickellWeeklyTarget=(brickellDailyNeed*7).toFixed(1);
+    const westWeeklyTarget=(westDailyNeed*7).toFixed(1);
+    const eastWeeklyTarget=(eastDailyNeed*7).toFixed(1);
+    const ftlWeeklyTarget=(ftlDailyNeed*7).toFixed(1);
+    const brickellDailyRate=daysIntoWeek>0?(bwtd.leasesSignedCount/daysIntoWeek):0;
+    const westDailyRate=daysIntoWeek>0?(wwtd.leasesSignedCount/daysIntoWeek):0;
+    const eastDailyRate=daysIntoWeek>0?(ewtd.leasesSignedCount/daysIntoWeek):0;
+    const ftlDailyRate=daysIntoWeek>0?(fwtd.leasesSignedCount/daysIntoWeek):0;
+    const brickellProjected=Math.round(bwtd.leasesSignedCount+(brickellDailyRate*daysLeftInWeek));
+    const westProjected=Math.round(wwtd.leasesSignedCount+(westDailyRate*daysLeftInWeek));
+    const eastProjected=Math.round(ewtd.leasesSignedCount+(eastDailyRate*daysLeftInWeek));
+    const ftlProjected=Math.round(fwtd.leasesSignedCount+(ftlDailyRate*daysLeftInWeek));
+    const brickellOnPace=brickellProjected>=parseFloat(brickellWeeklyTarget);
+    const westOnPace=westProjected>=parseFloat(westWeeklyTarget);
+    const eastOnPace=eastProjected>=parseFloat(eastWeeklyTarget);
+    const ftlOnPace=ftlProjected>=parseFloat(ftlWeeklyTarget);
+    const brickellWeeklyNeed=Math.max(0,parseFloat(brickellWeeklyTarget)-bwtd.leasesSignedCount);
+    const westWeeklyNeed=Math.max(0,parseFloat(westWeeklyTarget)-wwtd.leasesSignedCount);
+    const eastWeeklyNeed=Math.max(0,parseFloat(eastWeeklyTarget)-ewtd.leasesSignedCount);
+    const ftlWeeklyNeed=Math.max(0,parseFloat(ftlWeeklyTarget)-fwtd.leasesSignedCount);
+    return`<div class="bg-white rounded-lg shadow-xl p-6 mb-6 border-l-4 ${onPace?'border-green-500':'border-red-500'}"><h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Weekly Pace Tracker</h2><div class="grid grid-cols-4 gap-4 mb-6"><div class="bg-blue-50 p-4 rounded"><div class="text-xs text-blue-600 font-semibold uppercase mb-1">This Week</div><div class="text-3xl font-bold text-blue-600">${totalWtd}</div><div class="text-xs text-gray-600">Leases</div></div><div class="bg-orange-50 p-4 rounded border-l-2 border-orange-500"><div class="text-xs text-orange-600 font-semibold uppercase mb-1">Need</div><div class="text-3xl font-bold text-orange-600">${weeklyTarget.toFixed(1)}</div><div class="text-xs text-gray-600">To Stay On Track</div></div><div class="bg-purple-50 p-4 rounded"><div class="text-xs text-purple-600 font-semibold uppercase mb-1">Projected</div><div class="text-3xl font-bold text-purple-600">${projectedWeek}</div></div><div class="${onPace?'bg-green-50':'bg-red-50'} p-4 rounded"><div class="text-xs ${onPace?'text-green-600':'text-red-600'} font-semibold uppercase mb-1">Status</div><div class="text-3xl font-bold ${onPace?'text-green-600':'text-red-600'}">${onPace?'✓':'✗'}</div></div></div><div class="mb-4 p-4 bg-gray-50 rounded"><div class="text-sm text-gray-700"><strong>${daysLeftInWeek} days left</strong> • Need <strong>${Math.max(0,weeklyTarget-totalWtd).toFixed(1)}</strong> more • Avg <strong>${(Math.max(0,weeklyTarget-totalWtd)/daysLeftInWeek).toFixed(1)}</strong>/day</div></div><div class="border-t-2 border-gray-200 pt-4"><h3 class="text-lg font-semibold text-gray-800 mb-3">Property Breakdown</h3><div class="grid grid-cols-4 gap-4"><div class="p-4 bg-blue-50 rounded border-l-4 ${brickellOnPace?'border-green-500':'border-red-500'}"><div class="flex justify-between items-center mb-2"><span class="font-semibold text-blue-700">Brickell</span><span class="text-2xl">${brickellOnPace?'✓':'✗'}</span></div><div class="space-y-1"><div class="flex justify-between text-sm"><span class="text-gray-600">WTD:</span><span class="font-bold text-blue-600">${bwtd.leasesSignedCount}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Need:</span><span class="font-semibold text-orange-600">${brickellWeeklyTarget}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Pace:</span><span class="font-bold text-purple-600">${(brickellWeeklyNeed/daysLeftInWeek).toFixed(1)}/day</span></div></div></div><div class="p-4 bg-purple-50 rounded border-l-4 ${westOnPace?'border-green-500':'border-red-500'}"><div class="flex justify-between items-center mb-2"><span class="font-semibold text-purple-700">West</span><span class="text-2xl">${westOnPace?'✓':'✗'}</span></div><div class="space-y-1"><div class="flex justify-between text-sm"><span class="text-gray-600">WTD:</span><span class="font-bold text-purple-600">${wwtd.leasesSignedCount}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Need:</span><span class="font-semibold text-orange-600">${westWeeklyTarget}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Pace:</span><span class="font-bold text-purple-600">${(westWeeklyNeed/daysLeftInWeek).toFixed(1)}/day</span></div></div></div><div class="p-4 bg-green-50 rounded border-l-4 ${eastOnPace?'border-green-500':'border-red-500'}"><div class="flex justify-between items-center mb-2"><span class="font-semibold text-green-700">East</span><span class="text-2xl">${eastOnPace?'✓':'✗'}</span></div><div class="space-y-1"><div class="flex justify-between text-sm"><span class="text-gray-600">WTD:</span><span class="font-bold text-green-600">${ewtd.leasesSignedCount}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Need:</span><span class="font-semibold text-orange-600">${eastWeeklyTarget}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Pace:</span><span class="font-bold text-purple-600">${(eastWeeklyNeed/daysLeftInWeek).toFixed(1)}/day</span></div></div></div><div class="p-4 bg-teal-50 rounded border-l-4 ${ftlOnPace?'border-green-500':'border-red-500'}"><div class="flex justify-between items-center mb-2"><span class="font-semibold text-teal-700">FTL</span><span class="text-2xl">${ftlOnPace?'✓':'✗'}</span></div><div class="space-y-1"><div class="flex justify-between text-sm"><span class="text-gray-600">WTD:</span><span class="font-bold text-teal-600">${fwtd.leasesSignedCount}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Need:</span><span class="font-semibold text-orange-600">${ftlWeeklyTarget}</span></div><div class="flex justify-between text-sm"><span class="text-gray-600">Pace:</span><span class="font-bold text-purple-600">${(ftlWeeklyNeed/daysLeftInWeek).toFixed(1)}/day</span></div></div></div></div></div></div>`;
+}
+
+function render(){
+    const bm=cm(data.brickell,'brickell'),wm=cm(data.west,'west'),em=cm(data.east,'east'),fm=cm(data.ftl,'ftl');
+    const n=getNow(),ms=new Date(2026,1,1),dim=28;
+    const dayOfWeek=n.getDay();
+    const daysIntoWeek=dayOfWeek===0?6:dayOfWeek-1;
+    const daysLeftInWeek=Math.max(1,7-daysIntoWeek);
+    const ps=['brickell','west','east','ftl'];
+    const lms=glms();
+    const dayOfMonth=Math.floor((n-ms)/86400000)+1;
+    const lmSameDay=new Date(lms);
+    lmSameDay.setDate(dayOfMonth);
+    const lmPace=ps.map(p=>{
+        const apps=data[p];
+        const lmApps=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.applicationDate>=lms&&a.applicationDate<=lmSameDay&&!ag.includes('marketing')&&ag!=='flow';}).length;
+        const lmAppr=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.approvalDate&&a.approvalDate>=lms&&a.approvalDate<=lmSameDay&&!ag.includes('marketing')&&ag!=='flow';}).length;
+        const lmLeases=apps.filter(a=>{const ag=(a.agent||'').toLowerCase().trim();return a.originalLeaseExecuted&&a.originalLeaseExecuted>=lms&&a.originalLeaseExecuted<=lmSameDay&&!ag.includes('marketing')&&ag!=='flow';}).length;
+        return{prop:p,apps:lmApps,approvals:lmAppr,leases:lmLeases};
+    });
+    const h=ps.map(p=>({prop:p,...cpm(data[p],'historical')}));
+    const mtd=ps.map(p=>({prop:p,...cpm(data[p],'mtd')}));
+    const wtd=ps.map(p=>({prop:p,...cpm(data[p],'wtd')}));
+    const td=ps.map(p=>({prop:p,...cpm(data[p],'today')}));
+    const lw=ps.map(p=>({prop:p,...cpm(data[p],'lastweek')}));
+    const wbl=ps.map(p=>({prop:p,...cpm(data[p],'weekbeforelast')}));
+    const psum=`<div class="bg-white rounded-lg shadow-xl p-6 mb-6"><h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Property Performance</h2><div class="grid grid-cols-4 gap-6">${ps.map(p=>{const hm=h.find(m=>m.prop===p),mm=mtd.find(m=>m.prop===p),wm=wtd.find(m=>m.prop===p),tm=td.find(m=>m.prop===p),lwm=lw.find(m=>m.prop===p),wblm=wbl.find(m=>m.prop===p),lmp=lmPace.find(m=>m.prop===p);const nm=p==='brickell'?'Flow Brickell':p==='west'?'Flow West':p==='east'?'Flow East':'Flow FTL',cl=p==='brickell'?'#0EA5E9':p==='west'?'#8B5CF6':p==='east'?'#10B981':'#14B8A6';const de=Math.floor((n-ms)/86400000),dr=Math.max(1,dim-de),g=GOALS[p],sg=mm.leasesSignedCount,exp=Math.floor((g/dim)*de),v=sg-exp;const remaining=Math.max(0,g-sg);const dynamicDailyTarget=(remaining/dr).toFixed(1);const dynamicWeeklyNeed=Math.max(0,remaining-(parseFloat(dynamicDailyTarget)*(dr-daysLeftInWeek))).toFixed(1);const dynamicWeeklyTarget=(parseFloat(dynamicDailyTarget)*7).toFixed(1);const dynamicDailyForRestOfWeek=(parseFloat(dynamicWeeklyNeed)/daysLeftInWeek).toFixed(1);const wvlw=(wm.leasesSignedCount-lwm.leasesSignedCount).toFixed(1);const lwvw=(lwm.leasesSignedCount-wblm.leasesSignedCount).toFixed(1);let sb,sc;if(v>=3){sb='Ahead';sc='#10B981';}else if(v>=-2){sb='On Track';sc='#3B82F6';}else{sb='Behind';sc='#EF4444';}const propName=p==='brickell'?'Brickell':p==='west'?'West':p==='east'?'East':'FTL';const wtdMix=cUnitMix(data[p],'wtd',propName);const lwMix=cUnitMix(data[p],'lastweek',propName);const mtdMix=cUnitMix(data[p],'mtd',propName);const allTypes=new Set([...Object.keys(wtdMix),...Object.keys(lwMix),...Object.keys(mtdMix)]);const sortedTypes=Array.from(allTypes).sort();const momApps=mm.totalApps-lmp.apps;const momAppr=mm.approvalsCount-lmp.approvals;const momLeases=mm.leasesSignedCount-lmp.leases;return`<div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-lg border-2"style="border-color:${cl}"><div class="flex justify-between items-center mb-4"><div class="font-bold text-xl"style="color:${cl}">${nm}</div><div class="px-3 py-1 rounded-full text-xs font-bold text-white"style="background-color:${sc}">${sb}</div></div><div class="mb-4 pb-4 border-b-2 border-gray-200"><div class="text-xs text-gray-500 uppercase font-semibold mb-2">Today</div><div class="space-y-2"><div class="flex justify-between"><span class="text-gray-600 text-sm">Applications:</span><span class="font-semibold text-blue-600">${tm.totalApps}</span></div><div class="flex justify-between"><span class="text-gray-600 text-sm">Approvals:</span><span class="font-semibold text-orange-600">${tm.approvalsCount}</span></div><div class="flex justify-between"><span class="text-gray-600 text-sm">Leases:</span><div class="text-right"><span class="font-bold text-lg"style="color:${cl}">${tm.leasesSignedCount}</span>${tm.marketingLeases>0?`<div class="text-xs text-gray-500 italic">+${tm.marketingLeases} marketing</div>`:''}${tm.flowLeases>0?`<div class="text-xs text-gray-500 italic">+${tm.flowLeases} flow</div>`:''}</div></div><div class="bg-orange-100 p-2rounded mt-2 border-l-2 border-orange-500"><div class="flex justify-between text-xs"><span class="text-gray-700 font-semibold">Target Today:</span><span class="font-bold text-orange-700">${dynamicDailyTarget}</span></div><div class="text-xs text-gray-600 mt-1">${remaining} needed ÷ ${dr} days left</div></div></div></div><div class="mb-4 pb-4 border-b-2 border-gray-200"><div class="text-xs text-gray-500 uppercase font-semibold mb-2">This Week (WTD)</div><div class="space-y-2"><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Applications:</span><div><span class="font-semibold text-blue-600">${wm.totalApps}</span> <span class="text-xs ${(wm.totalApps-lwm.totalApps)>=0?'text-green-600':'text-red-600'} font-semibold">(${(wm.totalApps-lwm.totalApps)>=0?'+':''}${(wm.totalApps-lwm.totalApps)} vs LW)</span></div></div><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Approvals:</span><div><span class="font-semibold text-orange-600">${wm.approvalsCount}</span> <span class="text-xs ${(wm.approvalsCount-lwm.approvalsCount)>=0?'text-green-600':'text-red-600'} font-semibold">(${(wm.approvalsCount-lwm.approvalsCount)>=0?'+':''}${(wm.approvalsCount-lwm.approvalsCount)} vs LW)</span></div></div><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Leases:</span><div class="text-right"><div><span class="font-bold text-lg text-green-600">${wm.leasesSignedCount}</span> <span class="text-xs ${parseFloat(wvlw)>=0?'text-green-600':'text-red-600'} font-semibold">(${parseFloat(wvlw)>=0?'+':''}${wvlw} vs LW)</span></div>${wm.marketingLeases>0?`<div class="text-xs text-gray-500 italic">+${wm.marketingLeases} marketing</div>`:''}${wm.flowLeases>0?`<div class="text-xs text-gray-500 italic">+${wm.flowLeases} flow</div>`:''}</div></div><div class="bg-orange-100 p-2rounded mt-2 border-l-2 border-orange-500"><div class="flex justify-between text-xs"><span class="text-gray-700 font-semibold">Still Need This Week:</span><span class="font-bold text-orange-700">${dynamicWeeklyNeed}</span></div><div class="flex justify-between text-xs mt-1"><span class="text-gray-600">Daily Pace Needed:</span><span class="font-bold text-purple-700">${dynamicDailyForRestOfWeek}/day</span></div><div class="text-xs text-gray-600 mt-1">${daysLeftInWeek} days left</div></div></div></div><div class="mb-4 pb-4 border-b-2 border-gray-200"><div class="text-xs text-gray-500 uppercase font-semibold mb-2">Last Week</div><div class="space-y-2"><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Applications:</span><div><span class="font-semibold text-gray-800">${lwm.totalApps}</span> <span class="text-xs ${(lwm.totalApps-wblm.totalApps)>=0?'text-green-600':'text-red-600'} font-semibold">(${(lwm.totalApps-wblm.totalApps)>=0?'+':''}${(lwm.totalApps-wblm.totalApps)})</span></div></div><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Approvals:</span><div><span class="font-semibold text-gray-800">${lwm.approvalsCount}</span> <span class="text-xs ${(lwm.approvalsCount-wblm.approvalsCount)>=0?'text-green-600':'text-red-600'} font-semibold">(${(lwm.approvalsCount-wblm.approvalsCount)>=0?'+':''}${(lwm.approvalsCount-wblm.approvalsCount)})</span></div></div><div class="flex justify-between items-center"><span class="text-gray-600 text-sm">Leases:</span><div class="text-right"><div><span class="font-bold text-lg text-gray-800">${lwm.leasesSignedCount}</span> <span class="text-xs ${parseFloat(lwvw)>=0?'text-green-600':'text-red-600'} font-semibold">(${parseFloat(lwvw)>=0?'+':''}${lwvw})</span></div>${lwm.marketingLeases>0?`<div class="text-xs text-gray-500 italic">+${lwm.marketingLeases} marketing</div>`:''}${lwm.flowLeases>0?`<div class="text-xs text-gray-500 italic">+${lwm.flowLeases} flow</div>`:''}</div></div></div></div><div class="mb-4 pb-4 border-b-2 border-gray-200"><div class="text-xs text-gray-500 uppercase font-semibold mb-2">Month to Date</div><div class="space-y-2"><div class="flex justify-between"><span class="text-gray-600">Applications:</span><span class="font-semibold text-blue-600">${mm.totalApps}</span></div><div class="flex justify-between"><span class="text-gray-600">Approvals:</span><span class="font-semibold text-orange-600">${mm.approvalsCount}</span></div><div class="flex justify-between"><span class="text-gray-600">Leases:</span><div class="text-right"><span class="font-bold text-xl"style="color:${cl}">${mm.leasesSignedCount}</span>${mm.marketingLeases>0?`<div class="text-xs text-gray-500 italic">+${mm.marketingLeases} marketing</div>`:''}${mm.flowLeases>0?`<div class="text-xs text-gray-500 italic">+${mm.flowLeases} flow</div>`:''}</div></div><div class="bg-gray-100 p-2rounded mt-2"><div class="flex justify-between text-xs"><span class="text-gray-600">Goal:</span><span class="font-bold text-gray-800">${g}</span></div><div class="flex justify-between text-xs mt-1"><span class="text-gray-600">Remaining:</span><span class="font-bold text-orange-600">${remaining}</span></div><div class="flex justify-between text-xs mt-1"><span class="text-gray-600">Pace vs Target:</span><span class="font-bold ${v>=0?'text-green-600':'text-red-600'}">${v>=0?'+':''}${v}</span></div></div></div></div><div class="mb-4 pb-4 border-b-2 border-gray-200"><div class="text-xs text-purple-600 font-semibold uppercase mb-2">📊 Pace vs Last Month (Day ${dayOfMonth})</div><div class="bg-purple-50 p-3 rounded space-y-1"><div class="flex justify-between text-xs"><span class="text-gray-700">Apps:</span><span class="font-semibold ${momApps>=0?'text-green-600':'text-red-600'}">${mm.totalApps} (${momApps>=0?'+':''}${momApps})</span></div><div class="flex justify-between text-xs"><span class="text-gray-700">Approvals:</span><span class="font-semibold ${momAppr>=0?'text-green-600':'text-red-600'}">${mm.approvalsCount} (${momAppr>=0?'+':''}${momAppr})</span></div><div class="flex justify-between text-xs"><span class="text-gray-700">Leases:</span><span class="font-semibold ${momLeases>=0?'text-green-600':'text-red-600'}">${mm.leasesSignedCount} (${momLeases>=0?'+':''}${momLeases})</span></div></div></div><div><div class="text-xs text-gray-500 uppercase font-semibold mb-2">All Time</div><div class="space-y-2"><div class="flex justify-between"><span class="text-gray-600">Applications:</span><span class="font-semibold text-blue-600">${hm.totalApps}</span></div><div class="flex justify-between"><span class="text-gray-600">Approvals:</span><span class="font-semibold text-orange-600">${hm.approvalsCount}</span></div><div class="flex justify-between"><span class="text-gray-600">Leases:</span><div class="text-right"><span class="font-bold text-2xl text-green-600">${hm.leasesSignedCount}</span>${hm.marketingLeases>0?`<div class="text-xs text-gray-500 italic">+${hm.marketingLeases} marketing</div>`:''}${hm.flowLeases>0?`<div class="text-xs text-gray-500 italic">+${hm.flowLeases} flow</div>`:''}</div></div></div></div><div class="mt-4 pt-4 border-t-2 border-gray-200"><div class="text-xs text-gray-500 uppercase font-semibold mb-3">📊 Unit Mix (Apps)</div>${sortedTypes.length===0||sortedTypes.length===1&&sortedTypes[0]==='Unknown'?'<div class="text-xs text-gray-500 italic">No data</div>':`<div class="space-y-2">${sortedTypes.filter(t=>t!=='Unknown').map(type=>`<div class="flex justify-between text-xs"><span class="text-gray-600">${type}:</span><div class="space-x-3"><span class="text-blue-600">WTD:${wtdMix[type]||0}</span><span class="text-gray-600">LW:${lwMix[type]||0}</span><span class="text-purple-600">MTD:${mtdMix[type]||0}</span></div></div>`).join('')}</div>`}</div></div>`;}).join('')}</div></div>`;
+    const pa=[];
+    if(bm.violations48hr.length>0)pa.push(`<div class="bg-red-50 p-4 rounded border-l-4 border-red-500"><div class="font-semibold text-red-800">🚨 Brickell</div><div class="text-sm text-red-700">${bm.violations48hr.length} over 48hrs</div></div>`);
+    if(wm.violations48hr.length>0)pa.push(`<div class="bg-red-50 p-4 rounded border-l-4 border-red-500"><div class="font-semibold text-red-800">🚨 West</div><div class="text-sm text-red-700">${wm.violations48hr.length} over 48hrs</div></div>`);
+    if(em.violations48hr.length>0)pa.push(`<div class="bg-red-50 p-4 rounded border-l-4 border-red-500"><div class="font-semibold text-red-800">🚨 East</div><div class="text-sm text-red-700">${em.violations48hr.length} over 48hrs</div></div>`);
+    if(fm.violations48hr.length>0)pa.push(`<div class="bg-red-50 p-4 rounded border-l-4 border-red-500"><div class="font-semibold text-red-800">🚨 FTL</div><div class="text-sm text-red-700">${fm.violations48hr.length} over 48hrs</div></div>`);
+    if(bm.violations24hr.length>0)pa.push(`<div class="bg-orange-50 p-4 rounded border-l-4 border-orange-500"><div class="font-semibold text-orange-800">⚠️ Brickell</div><div class="text-sm text-orange-700">${bm.violations24hr.length} over 24hrs</div></div>`);
+    if(wm.violations24hr.length>0)pa.push(`<div class="bg-orange-50 p-4 rounded border-l-4 border-orange-500"><div class="font-semibold text-orange-800">⚠️ West</div><div class="text-sm text-orange-700">${wm.violations24hr.length} over 24hrs</div></div>`);
+    if(em.violations24hr.length>0)pa.push(`<div class="bg-orange-50 p-4 rounded border-l-4 border-orange-500"><div class="font-semibold text-orange-800">⚠️ East</div><div class="text-sm text-orange-700">${em.violations24hr.length} over 24hrs</div></div>`);
+    if(fm.violations24hr.length>0)pa.push(`<div class="bg-orange-50 p-4 rounded border-l-4 border-orange-500"><div class="font-semibold text-orange-800">⚠️ FTL</div><div class="text-sm text-orange-700">${fm.violations24hr.length} over 24hrs</div></div>`);
+    pa.push(`<div class="bg-blue-50 p-4 rounded border-l-4 border-blue-500"><div class="font-semibold text-blue-800">📊 Daily Target</div><div class="text-sm text-blue-700">Need ${(parseFloat(bm.dailyPaceNeeded)+parseFloat(wm.dailyPaceNeeded)+parseFloat(em.dailyPaceNeeded)+parseFloat(fm.dailyPaceNeeded)).toFixed(1)} today</div></div>`);
+    document.getElementById('app').innerHTML=`<div class="p-6 max-w-7xl mx-auto"><div class="bg-white rounded-lg shadow-xl p-6 mb-6"><div class="flex justify-between items-center"><div><h1 class="text-4xl font-bold text-gray-800 mb-2">📊 Flow Properties - Command Center</h1><p class="text-gray-600">February 2026 • 4 Properties</p></div><div class="text-right"><div class="text-sm text-gray-600">Updated</div><div class="font-semibold text-gray-800">${lastUp.toLocaleTimeString()}</div><button onclick="load()"class="mt-2 text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">🔄 Refresh</button></div></div></div>${execSummary()}${riskAlerts()}${weeklyPace()}${monthEndForecast()}${psum}${trendDashboard()}${conversionAnalysis()}${agentEfficiency()}${velocityMetrics()}${agentCoaching()}${unitTypeIntel()}${seasonalUnitPerformance()}${rst()}<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">${rpc('Flow Brickell',bm,'#0EA5E9')}${rpc('Flow West',wm,'#8B5CF6')}${rpc('Flow East',em,'#10B981')}${rpc('Flow FTL',fm,'#14B8A6')}</div>${rag()}<div class="mt-4 text-center text-white text-xs opacity-75"><p>✅ Auto-refreshes every 5 minutes</p></div></div>`;
+}
+
+setInterval(load,300000);
+load();
+    </script>
+</body>
+</html>
